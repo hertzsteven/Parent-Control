@@ -40,14 +40,9 @@ struct DetailView: View {
                         HStack(spacing: AppTheme.Spacing.lg) {
                             AppIconView(
                                 iconName: item.iconName,
-                                size: AppTheme.Layout.detailIconSize
+                                iconURL: item.iconURL,
+                                size: 50
                             )
-                            .frame(
-                                width: AppTheme.Layout.detailIconFrame,
-                                height: AppTheme.Layout.detailIconFrame
-                            )
-                            .background(AppTheme.Colors.cardBackground)
-                            .cornerRadius(AppTheme.Layout.cornerRadius)
                             
                             VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
                                 Text(item.title)

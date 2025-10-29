@@ -17,6 +17,7 @@ extension AppDTO {
             title: name,
             description: "\(vendor) - \(platform)",
             iconName: mapToIconName(),
+            bundleId: bundleId,
             additionalInfo: buildAdditionalInfo()
         )
     }

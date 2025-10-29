@@ -15,8 +15,7 @@ struct TileView: View {
     
     var body: some View {
         HStack(spacing: AppTheme.Spacing.md) {
-            AppIconView(iconName: item.iconName)
-                .frame(width: AppTheme.Layout.appIconWidth)
+            AppIconView(iconName: item.iconName, iconURL: item.iconURL)
             
             VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
                 Text(item.title)

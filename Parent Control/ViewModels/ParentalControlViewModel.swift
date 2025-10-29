@@ -214,6 +214,19 @@ final class ParentalControlViewModel {
             // Store deviceDTOs for UI access
             self.deviceDTOs = deviceDTOs
             
+            // Create bundleId to iconURL mapping from device apps
+            var bundleIdToIconURL: [String: String] = [:]
+            for deviceDTO in deviceDTOs {
+                if let apps = deviceDTO.apps {
+                    for app in apps {
+                        if let bundleId = app.identifier, let iconURL = app.icon, !iconURL.isEmpty {
+                            bundleIdToIconURL[bundleId] = iconURL
+                        }
+                    }
+                }
+            }
+            print("\n🎨 Icon URLs collected: \(bundleIdToIconURL.count)")
+            
             // Print device apps for debugging
             print("\n📋 DEVICE APPS BREAKDOWN:")
             print(String(repeating: "━", count: 60))
@@ -242,6 +255,33 @@ final class ParentalControlViewModel {
             let fetchedDevices = deviceDTOs.toDevices(bundleIdMapping: bundleIdMapping)
             print("\n✅ Devices fetched successfully: \(fetchedDevices.count)")
             
+            // Enrich AppItems with icon URLs from device apps
+            let enrichedApps = fetchedApps.map { app in
+                // Use the bundleId directly from the app to look up icon URL
+                if let bundleId = app.bundleId, let iconURL = bundleIdToIconURL[bundleId], !iconURL.isEmpty {
+                    return AppItem(
+                        id: app.id,
+                        title: app.title,
+                        description: app.description,
+                        iconName: app.iconName,
+                        iconURL: iconURL,
+                        bundleId: app.bundleId,
+                        additionalInfo: app.additionalInfo
+                    )
+                }
+                return app
+            }
+            
+            let appsWithIcons = enrichedApps.filter { $0.iconURL != nil }.count
+            print("\n🎨 Apps enriched with icon URLs: \(appsWithIcons)/\(enrichedApps.count)")
+            
+            // Debug: Print sample icon URLs
+            if let sampleApp = enrichedApps.first(where: { $0.iconURL != nil }) {
+                print("   Sample app with icon: \(sampleApp.title)")
+                print("   Bundle ID: \(sampleApp.bundleId ?? "none")")
+                print("   Icon URL: \(sampleApp.iconURL ?? "none")")
+            }
+            
             // Print device-app associations
             print("\n🔗 DEVICE-APP ASSOCIATIONS:")
             print(String(repeating: "━", count: 60))
@@ -251,13 +291,13 @@ final class ParentalControlViewModel {
             print(String(repeating: "━", count: 60))
             
             // Update observable properties
-            self.appItems = fetchedApps
+            self.appItems = enrichedApps
             self.devices = fetchedDevices
             
             // Clear any previous errors
             self.errorMessage = nil
             
-            print("\n✅ Successfully loaded \(fetchedApps.count) apps and \(fetchedDevices.count) devices from API\n")
+            print("\n✅ Successfully loaded \(enrichedApps.count) apps and \(fetchedDevices.count) devices from API\n")
             
         } catch let error as NetworkError {
             // Handle network errors and fall back to default data

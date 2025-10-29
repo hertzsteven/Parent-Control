@@ -12,7 +12,9 @@ struct AppItem: Identifiable, Codable, Equatable, Hashable {
     let id: UUID
     let title: String
     let description: String
-    let iconName: String
+    let iconName: String // SF Symbol name (fallback)
+    let iconURL: String? // URL to actual app icon from API
+    let bundleId: String? // Bundle identifier from API (e.g., "com.apple.Safari")
     let additionalInfo: String
     
     init(
@@ -20,12 +22,16 @@ struct AppItem: Identifiable, Codable, Equatable, Hashable {
         title: String,
         description: String,
         iconName: String,
+        iconURL: String? = nil,
+        bundleId: String? = nil,
         additionalInfo: String
     ) {
         self.id = id
         self.title = title
         self.description = description
         self.iconName = iconName
+        self.iconURL = iconURL
+        self.bundleId = bundleId
         self.additionalInfo = additionalInfo
     }
 }
