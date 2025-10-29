@@ -28,9 +28,27 @@ final class ParentalControlViewModel {
     /// Currently selected app item (if any)
     var selectedItem: AppItem?
     
+    /// Loading state for network requests
+    var isLoading: Bool = false
+    
+    /// Error message from last failed operation
+    var errorMessage: String?
+    
+    /// Network service for API calls
+    private let networkService: NetworkService
+    
     // MARK: - Initialization
     
-    init(childData: ChildData? = nil, appItems: [AppItem]? = nil, devices: [Device]? = nil) {
+    init(
+        childData: ChildData? = nil,
+        appItems: [AppItem]? = nil,
+        devices: [Device]? = nil,
+        networkService: NetworkService = NetworkService()
+    ) {
+        self.networkService = networkService
+        // Store app items in local variable first
+        let initialAppItems = appItems ?? Self.defaultAppItems
+        
         // Initialize child data
         self.childData = childData ?? ChildData(
             childImage: "person.crop.circle.fill",
@@ -39,10 +57,10 @@ final class ParentalControlViewModel {
         )
         
         // Initialize app items
-        self.appItems = appItems ?? Self.defaultAppItems
+        self.appItems = initialAppItems
         
         // Initialize devices with app associations
-        self.devices = devices ?? Self.createDefaultDevices(appItems: self.appItems)
+        self.devices = devices ?? Self.createDefaultDevices(appItems: initialAppItems)
     }
     
     // MARK: - Default Data
@@ -160,6 +178,68 @@ final class ParentalControlViewModel {
         // - Persist changes
         // - Notify user of change
         print("Decreasing access for: \(item.title)")
+    }
+    
+    // MARK: - Network Operations
+    
+    /// Load data from Zuludesk API
+    /// Fetches apps and devices, then updates the view model state
+    /// Falls back to default data if network request fails
+    func loadData() async {
+        isLoading = true
+        errorMessage = nil
+        
+        do {
+            // Fetch apps from API
+            let appDTOs = try await networkService.fetchApps()
+            
+            // Convert to domain models and get mapping
+            let (fetchedApps, appMapping) = appDTOs.toAppItems()
+            
+            // Fetch devices from API
+            let deviceDTOs = try await networkService.fetchDevices()
+            
+            // Convert to domain models using app mapping
+            let fetchedDevices = deviceDTOs.toDevices(appMapping: appMapping)
+            
+            // Update observable properties
+            self.appItems = fetchedApps
+            self.devices = fetchedDevices
+            
+            // Clear any previous errors
+            self.errorMessage = nil
+            
+            print("✅ Successfully loaded \(fetchedApps.count) apps and \(fetchedDevices.count) devices from API")
+            
+        } catch let error as NetworkError {
+            // Handle network errors and fall back to default data
+            self.errorMessage = error.localizedDescription
+            print("⚠️ Network error: \(error.localizedDescription). Using default data.")
+            loadDefaultData()
+            
+        } catch {
+            // Handle unexpected errors
+            self.errorMessage = "An unexpected error occurred: \(error.localizedDescription)"
+            print("⚠️ Unexpected error: \(error.localizedDescription). Using default data.")
+            loadDefaultData()
+        }
+        
+        isLoading = false
+    }
+    
+    /// Load data from API without blocking UI
+    /// Convenience method for calling from SwiftUI views
+    func loadDataInBackground() {
+        Task {
+            await loadData()
+        }
+    }
+    
+    /// Load default mock data
+    /// Used as fallback when network requests fail
+    private func loadDefaultData() {
+        self.appItems = Self.defaultAppItems
+        self.devices = Self.createDefaultDevices(appItems: Self.defaultAppItems)
     }
     
     // MARK: - Future Features

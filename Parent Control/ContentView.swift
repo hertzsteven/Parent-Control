@@ -76,6 +76,7 @@ struct ContentView: View {
         }
         .padding(AppTheme.Spacing.lg)
         .background(AppTheme.Colors.cardBackground)
+        .padding(.bottom, AppTheme.Spacing.md)
     }
     
     /// Scrollable list of controlled apps with access controls

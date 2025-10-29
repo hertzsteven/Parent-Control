@@ -11,7 +11,11 @@ import SwiftUI
 struct Parent_ControlApp: App {
     var body: some Scene {
         WindowGroup {
-            DeviceSelectionView()
+            // TEMPORARY: Using TestingView for API exploration
+            TestingView()
+            
+            // TODO: Switch back to your normal view when done testing
+            // DeviceSelectionView()
         }
     }
 }
