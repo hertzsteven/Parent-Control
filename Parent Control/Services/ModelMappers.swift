@@ -92,13 +92,14 @@ extension AppDTO {
 
 extension DeviceDTO {
     /// Convert API DTO to device domain model
-    /// - Parameter appMapping: Dictionary mapping app API IDs to AppItem UUIDs
+    /// - Parameter bundleIdMapping: Dictionary mapping app bundleIds to AppItem UUIDs
     /// - Returns: Device for use in the app
-    func toDevice(appMapping: [Int: UUID]) -> Device {
-        // Device apps now have bundleId directly, but we still need to map to AppItems
-        // For now, return empty array since we can't match without a common key
-        // TODO: Create bundleId-based mapping instead of ID-based
-        let mappedAppIds: [UUID] = []
+    func toDevice(bundleIdMapping: [String: UUID]) -> Device {
+        // Map device apps by bundleId to AppItem UUIDs
+        let mappedAppIds: [UUID] = apps?.compactMap { deviceApp in
+            guard let bundleId = deviceApp.identifier else { return nil }
+            return bundleIdMapping[bundleId]
+        } ?? []
         
         return Device(
             name: name,
@@ -150,27 +151,27 @@ extension DeviceDTO {
 
 extension Array where Element == AppDTO {
     /// Convert array of API DTOs to domain models
-    /// - Returns: Tuple with array of AppItems and mapping dictionary
-    func toAppItems() -> (items: [AppItem], mapping: [Int: UUID]) {
+    /// - Returns: Tuple with array of AppItems and bundleId-based mapping dictionary
+    func toAppItems() -> (items: [AppItem], bundleIdMapping: [String: UUID]) {
         var items: [AppItem] = []
-        var mapping: [Int: UUID] = [:]
+        var bundleIdMapping: [String: UUID] = [:]
         
         for dto in self {
             let appItem = dto.toAppItem()
             items.append(appItem)
-            mapping[dto.id] = appItem.id
+            bundleIdMapping[dto.bundleId] = appItem.id
         }
         
-        return (items, mapping)
+        return (items, bundleIdMapping)
     }
 }
 
 extension Array where Element == DeviceDTO {
     /// Convert array of API DTOs to domain models
-    /// - Parameter appMapping: Dictionary mapping app API IDs to AppItem UUIDs
+    /// - Parameter bundleIdMapping: Dictionary mapping app bundleIds to AppItem UUIDs
     /// - Returns: Array of Device objects
-    func toDevices(appMapping: [Int: UUID]) -> [Device] {
-        self.map { $0.toDevice(appMapping: appMapping) }
+    func toDevices(bundleIdMapping: [String: UUID]) -> [Device] {
+        self.map { $0.toDevice(bundleIdMapping: bundleIdMapping) }
     }
 }
 

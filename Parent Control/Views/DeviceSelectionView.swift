@@ -22,13 +22,37 @@ struct DeviceSelectionView: View {
                 AppTheme.Colors.background
                     .ignoresSafeArea()
                 
-                VStack(spacing: 0) {
-                    navigationBar
-                    deviceGridSection
+                // Show loading state while fetching data
+                if viewModel.isLoading {
+                    VStack(spacing: AppTheme.Spacing.lg) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                        Text("Loading devices...")
+                            .font(AppTheme.Typography.childName)
+                            .foregroundColor(AppTheme.Colors.textSecondary)
+                    }
+                } else {
+                    VStack(spacing: 0) {
+                        navigationBar
+                        deviceGridSection
+                    }
                 }
             }
             .navigationDestination(for: Device.self) { device in
                 ContentView(device: device, viewModel: viewModel)
+            }
+            .task {
+                // Load data from API when view appears
+                await viewModel.loadData()
+            }
+            .alert("Error Loading Data", isPresented: .constant(viewModel.errorMessage != nil)) {
+                Button("OK") {
+                    viewModel.errorMessage = nil
+                }
+            } message: {
+                if let error = viewModel.errorMessage {
+                    Text(error)
+                }
             }
         }
     }

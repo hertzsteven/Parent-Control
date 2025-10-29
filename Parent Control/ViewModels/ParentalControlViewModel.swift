@@ -199,16 +199,13 @@ final class ParentalControlViewModel {
             print("\n📲 Fetching apps...")
             let appDTOs = try await networkService.fetchApps()
             
-            // Convert to domain models and get mapping
-            let (fetchedApps, appMapping) = appDTOs.toAppItems()
+            // Convert to domain models and get bundleId mapping
+            let (fetchedApps, bundleIdMapping) = appDTOs.toAppItems()
             print("✅ Apps fetched successfully: \(fetchedApps.count)")
-            
-            // Create ID to DTO mapping for console printing with bundleIds
-            let appDTOMapping = Dictionary(uniqueKeysWithValues: appDTOs.map { ($0.id, $0) })
             
             // Debug: Show master apps available
             print("\n🔍 DEBUG - Master Apps Available: \(appDTOs.count)")
-            print("   Sample IDs: \(appDTOs.prefix(5).map { $0.id })")
+            print("   Sample bundleIds: \(appDTOs.prefix(5).map { $0.bundleId })")
             
             // Fetch devices from API (with apps included)
             print("\n📱 Fetching devices with installed apps...")
@@ -241,8 +238,8 @@ final class ParentalControlViewModel {
             }
             print(String(repeating: "━", count: 60))
             
-            // Convert to domain models using app mapping
-            let fetchedDevices = deviceDTOs.toDevices(appMapping: appMapping)
+            // Convert to domain models using bundleId mapping
+            let fetchedDevices = deviceDTOs.toDevices(bundleIdMapping: bundleIdMapping)
             print("\n✅ Devices fetched successfully: \(fetchedDevices.count)")
             
             // Print device-app associations
