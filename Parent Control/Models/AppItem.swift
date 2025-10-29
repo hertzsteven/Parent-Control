@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct TileItem: Identifiable, Codable, Equatable, Hashable {
+struct AppItem: Identifiable, Codable, Equatable, Hashable {
     let id: UUID
     let title: String
     let description: String

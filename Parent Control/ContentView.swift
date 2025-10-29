@@ -27,15 +27,15 @@ struct ContentView: View {
                     
                     // Profile section on gray background (not scrollable)
                     HStack(spacing: 12) {
-                        Image(systemName: viewModel.profileData.profileImage)
+                        Image(systemName: viewModel.childData.childImage)
                             .font(.system(size: 50))
                             .foregroundColor(.blue)
                         
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(viewModel.profileData.name)
+                            Text(viewModel.childData.name)
                                 .font(.system(size: 18, weight: .bold))
                             
-                            Text(viewModel.profileData.deviceInfo)
+                            Text(viewModel.childData.deviceInfo)
                                 .font(.system(size: 14))
                                 .foregroundColor(.gray)
                         }
@@ -45,10 +45,10 @@ struct ContentView: View {
                     .padding()
                     .padding(.bottom, 8)
                     
-                    // Scrollable tiles
+                    // Scrollable apps
                     ScrollView {
                         VStack(spacing: 12) {
-                            ForEach(viewModel.tileItems) { item in
+                            ForEach(viewModel.appItems) { item in
                                 NavigationLink(value: item) {
                                     TileView(
                                         item: item,
@@ -63,7 +63,7 @@ struct ContentView: View {
                     }
                 }
             }
-            .navigationDestination(for: TileItem.self) { item in
+            .navigationDestination(for: AppItem.self) { item in
                 DetailView(item: item)
             }
         }

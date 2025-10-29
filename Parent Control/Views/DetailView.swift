@@ -9,7 +9,7 @@ import SwiftUI
 
 struct DetailView: View {
     @Environment(\.dismiss) var dismiss
-    let item: TileItem
+    let item: AppItem
     
     var body: some View {
         ZStack {

@@ -7,20 +7,20 @@
 
 import Foundation
 
-struct ProfileData: Identifiable, Codable, Equatable {
+struct ChildData: Identifiable, Codable, Equatable {
     let id: UUID
-    let profileImage: String
+    let childImage: String
     let name: String
     let deviceInfo: String
     
     init(
         id: UUID = UUID(),
-        profileImage: String,
+        childImage: String,
         name: String,
         deviceInfo: String
     ) {
         self.id = id
-        self.profileImage = profileImage
+        self.childImage = childImage
         self.name = name
         self.deviceInfo = deviceInfo
     }

@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct TileView: View {
-    let item: TileItem
+    let item: AppItem
     let onIncrease: () -> Void
     let onDecrease: () -> Void
     
@@ -49,6 +49,24 @@ struct TileView: View {
         .padding()
         .background(Color.white)
         .cornerRadius(12)
+    }
+}
+
+struct TileView_Previews: PreviewProvider {
+    static var previews: some View {
+        TileView(
+            item: AppItem(
+                title: "Sample Tile Title",
+                description: "This is a description for the app item to preview the layout and style.",
+                iconName: "star.fill",
+                additionalInfo: "Additional Info"
+            ),
+            onIncrease: {},
+            onDecrease: {}
+        )
+        .previewLayout(.sizeThatFits)
+        .padding()
+        .background(Color.gray.opacity(0.1))
     }
 }
 
