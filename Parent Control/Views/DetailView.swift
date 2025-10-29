@@ -7,82 +7,97 @@
 
 import SwiftUI
 
+/// Detailed view for a specific controlled app showing full information
 struct DetailView: View {
     @Environment(\.dismiss) var dismiss
     let item: AppItem
     
     var body: some View {
         ZStack {
-            Color(UIColor.systemGray6)
+            AppTheme.Colors.background
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
-                // White top bar
+                // Back button bar
                 HStack {
                     Button(action: { dismiss() }) {
                         HStack {
                             Image(systemName: "chevron.left")
-                                .font(.system(size: 14, weight: .semibold))
+                                .font(AppTheme.Typography.backButton)
                             Text("Back")
                         }
                     }
+                    .buttonStyle(.navigationLink)
                     
                     Spacer()
                 }
-                .padding()
-                .foregroundColor(.blue)
-                .background(Color.white)
+                .navigationBarStyle()
+                .foregroundColor(AppTheme.Colors.primary)
                 
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: AppTheme.Spacing.lg) {
                         // Header with icon and title
-                        HStack(spacing: 16) {
-                            Image(systemName: item.iconName)
-                                .font(.system(size: 40))
-                                .foregroundColor(.blue)
-                                .frame(width: 60, height: 60)
-                                .background(Color.white)
-                                .cornerRadius(12)
+                        HStack(spacing: AppTheme.Spacing.lg) {
+                            AppIconView(
+                                iconName: item.iconName,
+                                size: AppTheme.Layout.detailIconSize
+                            )
+                            .frame(
+                                width: AppTheme.Layout.detailIconFrame,
+                                height: AppTheme.Layout.detailIconFrame
+                            )
+                            .background(AppTheme.Colors.cardBackground)
+                            .cornerRadius(AppTheme.Layout.cornerRadius)
                             
-                            VStack(alignment: .leading, spacing: 4) {
+                            VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
                                 Text(item.title)
-                                    .font(.system(size: 24, weight: .bold))
+                                    .font(AppTheme.Typography.detailTitle)
                                 
                                 Text(item.description)
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.gray)
+                                    .font(AppTheme.Typography.detailDescription)
+                                    .foregroundColor(AppTheme.Colors.textSecondary)
                             }
                             
                             Spacer()
                         }
-                        .padding()
-                        .background(Color.white)
-                        .cornerRadius(12)
+                        .padding(AppTheme.Spacing.lg)
+                        .cardStyle()
                         
                         // Information section
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
                             Text("Details")
-                                .font(.system(size: 16, weight: .semibold))
-                                .padding(.horizontal)
+                                .font(AppTheme.Typography.sectionHeader)
+                                .padding(.horizontal, AppTheme.Spacing.lg)
                             
                             Text(item.additionalInfo)
-                                .font(.system(size: 14))
-                                .foregroundColor(.gray)
+                                .font(AppTheme.Typography.detailDescription)
+                                .foregroundColor(AppTheme.Colors.textSecondary)
                                 .lineLimit(nil)
-                                .padding()
-                                .background(Color.white)
-                                .cornerRadius(12)
-                                .padding(.horizontal)
+                                .padding(AppTheme.Spacing.lg)
+                                .cardStyle()
+                                .padding(.horizontal, AppTheme.Spacing.lg)
                         }
                         
                         Spacer()
                     }
-                    .padding(.horizontal)
-                    .padding(.vertical, 16)
+                    .padding(.horizontal, AppTheme.Spacing.lg)
+                    .padding(.vertical, AppTheme.Spacing.lg)
                 }
             }
         }
         .navigationBarBackButtonHidden(true)
     }
+}
+
+// MARK: - Preview
+#Preview {
+    DetailView(
+        item: AppItem(
+            title: "YouTube",
+            description: "Video streaming platform",
+            iconName: "play.rectangle.fill",
+            additionalInfo: "Allowed video streaming platform. User has access to YouTube content with parental controls enabled."
+        )
+    )
 }
 
