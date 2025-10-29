@@ -41,25 +41,76 @@ struct DevicesResponse: Codable {
 }
 
 /// Data Transfer Object for device from Zuludesk API
-/// Note: Adjust fields based on actual API response structure
 struct DeviceDTO: Codable {
-    let id: Int
+    let udid: String  // Using UDID as the unique identifier
     let name: String
-    let deviceType: String?
-    let model: String?
-    let osVersion: String?
     let serialNumber: String?
-    let apps: [Int]?  // Array of app IDs associated with this device
+    let assetTag: String?
+    let deviceClass: String?  // "ipad", "iphone", etc.
+    let model: DeviceModel?
+    let os: DeviceOS?
+    let owner: DeviceOwner?
+    let batteryLevel: Double?
+    let totalCapacity: Int?
+    let availableCapacity: Double?
+    let isManaged: Bool?
+    let isSupervised: Bool?
+    let lastCheckin: String?
+    let groupIds: [String]?
+    let groups: [String]?
+    let apps: [DeviceAppDTO]?  // Apps installed on this device
     
     enum CodingKeys: String, CodingKey {
-        case id
+        case udid = "UDID"
         case name
-        case deviceType = "device_type"
+        case serialNumber
+        case assetTag
+        case deviceClass = "class"
         case model
-        case osVersion = "os_version"
-        case serialNumber = "serial_number"
+        case os
+        case owner
+        case batteryLevel
+        case totalCapacity
+        case availableCapacity
+        case isManaged
+        case isSupervised
+        case lastCheckin
+        case groupIds
+        case groups
         case apps
     }
+}
+
+/// App information within device response
+struct DeviceAppDTO: Codable {
+    let name: String?
+    let identifier: String?  // This is the bundleId
+    let vendor: String?
+    let version: String?
+    let icon: String?
+}
+
+/// Device model information
+struct DeviceModel: Codable {
+    let name: String?
+    let identifier: String?
+    let type: String?
+}
+
+/// Device OS information
+struct DeviceOS: Codable {
+    let prefix: String?  // "iOS", "iPadOS", etc.
+    let version: String?
+}
+
+/// Device owner information
+struct DeviceOwner: Codable {
+    let id: Int?
+    let username: String?
+    let email: String?
+    let firstName: String?
+    let lastName: String?
+    let name: String?
 }
 
 // MARK: - Error Response

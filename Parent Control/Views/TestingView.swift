@@ -10,6 +10,7 @@ import SwiftUI
 struct TestingView: View {
     @State private var viewModel = ParentalControlViewModel()
     @State private var showResults = false
+    @State private var firstDeviceApps: [(name: String, bundleId: String, vendor: String, version: String, iconURL: String)] = []
     
     var body: some View {
         NavigationStack {
@@ -33,9 +34,25 @@ struct TestingView: View {
                 // Fetch button
                 Button {
                     showResults = false
+                    firstDeviceApps = []
                     Task {
                         await viewModel.loadData()
                         showResults = true
+                        
+                        // Extract first device apps for display
+                        if let firstDevice = viewModel.deviceDTOs.first,
+                           let apps = firstDevice.apps {
+                            firstDeviceApps = apps.map { app in
+                                (
+                                    name: app.name ?? "Unknown",
+                                    bundleId: app.identifier ?? "no bundle ID",
+                                    vendor: app.vendor ?? "Unknown",
+                                    version: app.version ?? "N/A",
+                                    iconURL: app.icon ?? ""
+                                )
+                            }
+                        }
+                        
                         printResults()
                     }
                 } label: {
@@ -95,6 +112,60 @@ struct TestingView: View {
                     .background(Color.green.opacity(0.1))
                     .cornerRadius(8)
                     .padding(.horizontal)
+                }
+                
+                // First Device Apps Display
+                if !firstDeviceApps.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("📱 \(viewModel.deviceDTOs.first?.name ?? "Device") Apps (\(firstDeviceApps.count))")
+                            .font(.headline)
+                            .padding(.horizontal)
+                        
+                        ScrollView {
+                            LazyVStack(spacing: 12) {
+                                ForEach(firstDeviceApps, id: \.bundleId) { app in
+                                    HStack(spacing: 12) {
+                                        // App icon from URL
+                                        AsyncImage(url: URL(string: app.iconURL)) { image in
+                                            image
+                                                .resizable()
+                                                .scaledToFit()
+                                        } placeholder: {
+                                            Image(systemName: "app.fill")
+                                                .foregroundColor(.gray)
+                                        }
+                                        .frame(width: 50, height: 50)
+                                        .cornerRadius(10)
+                                        
+                                        // App info
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(app.name)
+                                                .font(.subheadline)
+                                                .fontWeight(.medium)
+                                            Text(app.vendor)
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                            Text(app.bundleId)
+                                                .font(.caption2)
+                                                .foregroundColor(.blue)
+                                                .lineLimit(1)
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        Text(app.version)
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .padding(12)
+                                    .background(Color.gray.opacity(0.1))
+                                    .cornerRadius(8)
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
+                        .frame(maxHeight: 600)
+                    }
                 }
                 
                 Spacer()

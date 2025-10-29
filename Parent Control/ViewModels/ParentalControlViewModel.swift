@@ -37,6 +37,9 @@ final class ParentalControlViewModel {
     /// Network service for API calls
     private let networkService: NetworkService
     
+    /// Raw device DTOs with app info (for debugging/display)
+    var deviceDTOs: [DeviceDTO] = []
+    
     // MARK: - Initialization
     
     init(
@@ -189,18 +192,66 @@ final class ParentalControlViewModel {
         isLoading = true
         errorMessage = nil
         
+        print("\n🚀 Starting API data load...")
+        
         do {
             // Fetch apps from API
+            print("\n📲 Fetching apps...")
             let appDTOs = try await networkService.fetchApps()
             
             // Convert to domain models and get mapping
             let (fetchedApps, appMapping) = appDTOs.toAppItems()
+            print("✅ Apps fetched successfully: \(fetchedApps.count)")
             
-            // Fetch devices from API
-            let deviceDTOs = try await networkService.fetchDevices()
+            // Create ID to DTO mapping for console printing with bundleIds
+            let appDTOMapping = Dictionary(uniqueKeysWithValues: appDTOs.map { ($0.id, $0) })
+            
+            // Debug: Show master apps available
+            print("\n🔍 DEBUG - Master Apps Available: \(appDTOs.count)")
+            print("   Sample IDs: \(appDTOs.prefix(5).map { $0.id })")
+            
+            // Fetch devices from API (with apps included)
+            print("\n📱 Fetching devices with installed apps...")
+            let deviceDTOs = try await networkService.fetchDevices(includeApps: true)
+            
+            // Store deviceDTOs for UI access
+            self.deviceDTOs = deviceDTOs
+            
+            // Print device apps for debugging
+            print("\n📋 DEVICE APPS BREAKDOWN:")
+            print(String(repeating: "━", count: 60))
+            for deviceDTO in deviceDTOs {
+                print("\n🔷 \(deviceDTO.name) (\(deviceDTO.udid.prefix(8))...)")
+                if let apps = deviceDTO.apps, !apps.isEmpty {
+                    print("   Apps installed: \(apps.count)")
+                    print("")
+                    for app in apps.prefix(5) {  // Show first 5 apps
+                        let bundleId = app.identifier ?? "no bundle ID"
+                        let vendor = app.vendor ?? "unknown vendor"
+                        print("   • \(app.name ?? "Unknown")")
+                        print("     Bundle ID: \(bundleId)")
+                        print("     Vendor: \(vendor) | Version: \(app.version ?? "N/A")")
+                    }
+                    if apps.count > 5 {
+                        print("\n   ... and \(apps.count - 5) more apps")
+                    }
+                } else {
+                    print("   ⚠️ No apps reported")
+                }
+            }
+            print(String(repeating: "━", count: 60))
             
             // Convert to domain models using app mapping
             let fetchedDevices = deviceDTOs.toDevices(appMapping: appMapping)
+            print("\n✅ Devices fetched successfully: \(fetchedDevices.count)")
+            
+            // Print device-app associations
+            print("\n🔗 DEVICE-APP ASSOCIATIONS:")
+            print(String(repeating: "━", count: 60))
+            for device in fetchedDevices {
+                print("\n📱 \(device.name): \(device.appIds.count) apps mapped")
+            }
+            print(String(repeating: "━", count: 60))
             
             // Update observable properties
             self.appItems = fetchedApps
@@ -209,18 +260,20 @@ final class ParentalControlViewModel {
             // Clear any previous errors
             self.errorMessage = nil
             
-            print("✅ Successfully loaded \(fetchedApps.count) apps and \(fetchedDevices.count) devices from API")
+            print("\n✅ Successfully loaded \(fetchedApps.count) apps and \(fetchedDevices.count) devices from API\n")
             
         } catch let error as NetworkError {
             // Handle network errors and fall back to default data
+            print("\n❌ Network error occurred: \(error.localizedDescription)")
             self.errorMessage = error.localizedDescription
-            print("⚠️ Network error: \(error.localizedDescription). Using default data.")
+            print("⚠️ Falling back to default data.\n")
             loadDefaultData()
             
         } catch {
             // Handle unexpected errors
-            self.errorMessage = "An unexpected error occurred: \(error.localizedDescription)"
-            print("⚠️ Unexpected error: \(error.localizedDescription). Using default data.")
+            print("\n❌ Unexpected error: \(error)")
+            self.errorMessage = "Failed to decode response: \(error.localizedDescription)"
+            print("⚠️ Falling back to default data.\n")
             loadDefaultData()
         }
         

@@ -95,10 +95,10 @@ extension DeviceDTO {
     /// - Parameter appMapping: Dictionary mapping app API IDs to AppItem UUIDs
     /// - Returns: Device for use in the app
     func toDevice(appMapping: [Int: UUID]) -> Device {
-        // Map app IDs from API to AppItem UUIDs
-        let mappedAppIds = (apps ?? []).compactMap { apiId in
-            appMapping[apiId]
-        }
+        // Device apps now have bundleId directly, but we still need to map to AppItems
+        // For now, return empty array since we can't match without a common key
+        // TODO: Create bundleId-based mapping instead of ID-based
+        let mappedAppIds: [UUID] = []
         
         return Device(
             name: name,
@@ -110,37 +110,38 @@ extension DeviceDTO {
     
     /// Map device type/model to SF Symbol icon name
     private func mapToIconName() -> String {
-        let deviceTypeLower = (deviceType ?? "").lowercased()
-        let modelLower = (model ?? "").lowercased()
+        let deviceClassLower = (deviceClass ?? "").lowercased()
+        let modelName = (model?.name ?? "").lowercased()
+        let modelType = (model?.type ?? "").lowercased()
         let nameLower = name.lowercased()
         
         switch true {
-        case deviceTypeLower.contains("ipad") || modelLower.contains("ipad") || nameLower.contains("ipad"):
+        case deviceClassLower.contains("ipad") || modelType.contains("ipad") || nameLower.contains("ipad"):
             // Try to determine iPad generation/style from model or name
-            if modelLower.contains("pro") || nameLower.contains("pro") {
+            if modelName.contains("pro") || nameLower.contains("pro") {
                 return "ipad.gen2"
-            } else if modelLower.contains("air") || nameLower.contains("air") {
+            } else if modelName.contains("air") || nameLower.contains("air") {
                 return "ipad.gen1"
-            } else if modelLower.contains("mini") || nameLower.contains("mini") {
+            } else if modelName.contains("mini") || nameLower.contains("mini") {
                 return "ipad"
             } else {
                 return "ipad.landscape"
             }
-        case deviceTypeLower.contains("iphone") || modelLower.contains("iphone"):
+        case deviceClassLower.contains("iphone") || modelType.contains("iphone"):
             return "iphone"
-        case deviceTypeLower.contains("mac") || modelLower.contains("mac"):
+        case deviceClassLower.contains("mac") || modelType.contains("mac"):
             return "laptopcomputer"
-        case deviceTypeLower.contains("tv") || modelLower.contains("appletv"):
+        case deviceClassLower.contains("tv") || modelName.contains("appletv"):
             return "appletv.fill"
         default:
             return "ipad"
         }
     }
     
-    /// Assign a ring color based on device ID (for consistent coloring)
+    /// Assign a ring color based on device UDID (for consistent coloring)
     private func mapToRingColor() -> String {
         let colors = ["blue", "green", "purple", "orange", "red", "pink", "cyan", "yellow"]
-        let index = abs(id) % colors.count
+        let index = abs(udid.hashValue) % colors.count
         return colors[index]
     }
 }

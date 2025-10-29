@@ -26,9 +26,9 @@ struct APIConfiguration {
     // MARK: - Initialization
     
     init(
-        baseURL: String = "apiv6.zuludesk.com",
-        networkID: String = "YOUR_NETWORK_ID",
-        apiKey: String = "YOUR_API_KEY",
+        baseURL: String = "developitsnfrEDU.jamfcloud.com/api",
+        networkID: String = "65319076",
+        apiKey: String = "MCSMD6VC7MCKUNN8MJ5CDA96R1HZBGAV",
         apiVersion: String = "1"
     ) {
         self.baseURL = baseURL

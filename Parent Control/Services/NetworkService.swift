@@ -67,10 +67,11 @@ final class NetworkService {
     }
     
     /// Fetch all devices from Zuludesk API
+    /// - Parameter includeApps: Include installed apps in response (default: true)
     /// - Returns: Array of DeviceDTO objects
     /// - Throws: NetworkError if request fails
-    func fetchDevices() async throws -> [DeviceDTO] {
-        let endpoint = "/devices/"
+    func fetchDevices(includeApps: Bool = true) async throws -> [DeviceDTO] {
+        let endpoint = "/devices/?includeApps=\(includeApps)"
         let response: DevicesResponse = try await request(endpoint: endpoint, method: "GET")
         return response.devices
     }
@@ -94,6 +95,11 @@ final class NetworkService {
             throw NetworkError.invalidURL
         }
         
+        print("\n🌐 API REQUEST")
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print("📍 URL: \(url.absoluteString)")
+        print("🔧 Method: \(method)")
+        
         // Create request
         var request = URLRequest(url: url)
         request.httpMethod = method
@@ -110,8 +116,22 @@ final class NetworkService {
         
         // Validate response
         guard let httpResponse = response as? HTTPURLResponse else {
+            print("❌ Invalid HTTP Response")
             throw NetworkError.invalidResponse
         }
+        
+        print("📊 Status Code: \(httpResponse.statusCode)")
+        print("📦 Response Size: \(data.count) bytes")
+        
+        // Print raw response for debugging
+        if let jsonString = String(data: data, encoding: .utf8) {
+            print("📄 Raw Response:")
+            print(jsonString.prefix(1000)) // First 1000 characters
+            if jsonString.count > 1000 {
+                print("... (\(jsonString.count - 1000) more characters)")
+            }
+        }
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
         
         // Handle HTTP status codes
         switch httpResponse.statusCode {
@@ -119,23 +139,51 @@ final class NetworkService {
             // Success - decode response
             do {
                 let decoder = JSONDecoder()
-                return try decoder.decode(T.self, from: data)
+                let decoded = try decoder.decode(T.self, from: data)
+                print("✅ Successfully decoded \(T.self)")
+                return decoded
             } catch {
+                print("❌ DECODING ERROR for \(T.self):")
+                print("   \(error)")
+                
+                // Try to print more detailed decoding error
+                if let decodingError = error as? DecodingError {
+                    switch decodingError {
+                    case .keyNotFound(let key, let context):
+                        print("   Missing key: '\(key.stringValue)' - \(context.debugDescription)")
+                    case .typeMismatch(let type, let context):
+                        print("   Type mismatch: expected \(type) - \(context.debugDescription)")
+                        print("   Coding path: \(context.codingPath.map { $0.stringValue }.joined(separator: " -> "))")
+                    case .valueNotFound(let type, let context):
+                        print("   Value not found: \(type) - \(context.debugDescription)")
+                    case .dataCorrupted(let context):
+                        print("   Data corrupted: \(context.debugDescription)")
+                    @unknown default:
+                        print("   Unknown decoding error")
+                    }
+                }
+                
                 throw NetworkError.decodingFailed(error)
             }
             
         case 401:
+            print("🔐 Authentication Failed (401)")
             throw NetworkError.authenticationFailed
             
         case 400...499, 500...599:
             // Try to decode error response
             let errorMessage = try? JSONDecoder().decode(APIErrorResponse.self, from: data)
+            print("⚠️ Server Error: \(httpResponse.statusCode)")
+            if let errorMessage = errorMessage {
+                print("   Message: \(errorMessage.message ?? "No message")")
+            }
             throw NetworkError.serverError(
                 statusCode: httpResponse.statusCode,
                 message: errorMessage?.message
             )
             
         default:
+            print("⚠️ Unexpected Status Code: \(httpResponse.statusCode)")
             throw NetworkError.serverError(
                 statusCode: httpResponse.statusCode,
                 message: "Unexpected status code"
