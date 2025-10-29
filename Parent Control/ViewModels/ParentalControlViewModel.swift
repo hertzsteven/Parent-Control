@@ -16,15 +16,21 @@ final class ParentalControlViewModel {
     /// Current child's profile information
     var childData: ChildData
     
-    /// List of apps under parental control
+    /// List of all available apps
     var appItems: [AppItem]
+    
+    /// List of available devices
+    var devices: [Device]
+    
+    /// Currently selected device (if any)
+    var selectedDevice: Device?
     
     /// Currently selected app item (if any)
     var selectedItem: AppItem?
     
     // MARK: - Initialization
     
-    init(childData: ChildData? = nil, appItems: [AppItem]? = nil) {
+    init(childData: ChildData? = nil, appItems: [AppItem]? = nil, devices: [Device]? = nil) {
         // Initialize child data
         self.childData = childData ?? ChildData(
             childImage: "person.crop.circle.fill",
@@ -34,6 +40,9 @@ final class ParentalControlViewModel {
         
         // Initialize app items
         self.appItems = appItems ?? Self.defaultAppItems
+        
+        // Initialize devices with app associations
+        self.devices = devices ?? Self.createDefaultDevices(appItems: self.appItems)
     }
     
     // MARK: - Default Data
@@ -77,7 +86,59 @@ final class ParentalControlViewModel {
         )
     ]
     
+    /// Create default devices with app associations
+    private static func createDefaultDevices(appItems: [AppItem]) -> [Device] {
+        // Get specific app IDs
+        let youtubeId = appItems.first { $0.title == "YouTube" }?.id
+        let safariId = appItems.first { $0.title == "Safari" }?.id
+        let musicId = appItems.first { $0.title == "Music" }?.id
+        let appStoreId = appItems.first { $0.title == "App Store" }?.id
+        let booksId = appItems.first { $0.title == "Books" }?.id
+        let photosId = appItems.first { $0.title == "Photos" }?.id
+        
+        return [
+            Device(
+                name: "Living Room iPad",
+                iconName: "ipad.gen1",
+                ringColor: "blue",
+                appIds: [youtubeId, safariId, musicId].compactMap { $0 }
+            ),
+            Device(
+                name: "Bedroom iPad",
+                iconName: "ipad.gen2",
+                ringColor: "green",
+                appIds: [youtubeId, booksId, photosId, musicId].compactMap { $0 }
+            ),
+            Device(
+                name: "Kids Room iPad",
+                iconName: "ipad.landscape",
+                ringColor: "purple",
+                appIds: [youtubeId, appStoreId, booksId, photosId].compactMap { $0 }
+            ),
+            Device(
+                name: "Study iPad",
+                iconName: "ipad",
+                ringColor: "orange",
+                appIds: [safariId, booksId, photosId].compactMap { $0 }
+            )
+        ]
+    }
+    
+    // MARK: - Computed Properties
+    
+    /// Get apps filtered by selected device
+    func appsForDevice(_ device: Device) -> [AppItem] {
+        appItems.filter { app in
+            device.appIds.contains(app.id)
+        }
+    }
+    
     // MARK: - Actions
+    
+    /// Select a device and update filtered apps
+    func selectDevice(_ device: Device) {
+        selectedDevice = device
+    }
     
     /// Increase access level for a specific app
     /// - Parameter item: The app to modify access for

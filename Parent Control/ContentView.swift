@@ -3,33 +3,38 @@ import SwiftUI
 // MARK: - Main Content View
 /// Main parental control view displaying child profile and controlled apps
 struct ContentView: View {
-    @State private var viewModel = ParentalControlViewModel()
+    let device: Device
+    var viewModel: ParentalControlViewModel
+    
+    @State private var filteredApps: [AppItem] = []
     
     var body: some View {
-        NavigationStack {
-            ZStack {
-                AppTheme.Colors.background
-                    .ignoresSafeArea()
-                
-                VStack(spacing: 0) {
-                    navigationBar
-                    ChildProfileHeaderView(childData: viewModel.childData)
-                    appListSection
-                }
+        ZStack {
+            AppTheme.Colors.background
+                .ignoresSafeArea()
+            
+            VStack(spacing: 0) {
+                navigationBar
+                deviceHeaderView
+                appListSection
             }
-            .navigationDestination(for: AppItem.self) { item in
-                DetailView(item: item)
-            }
+        }
+        .navigationDestination(for: AppItem.self) { item in
+            DetailView(item: item)
+        }
+        .onAppear {
+            filteredApps = viewModel.appsForDevice(device)
+            viewModel.selectDevice(device)
         }
     }
     
     // MARK: - View Components
     
-    /// Top navigation bar with title and menu button
+    /// Top navigation bar with device name and menu button
     @ViewBuilder
     private var navigationBar: some View {
         HStack {
-            Text("Parental Controls")
+            Text(device.name)
                 .font(AppTheme.Typography.navigationTitle)
             
             Spacer()
@@ -42,15 +47,46 @@ struct ContentView: View {
         .navigationBarStyle()
     }
     
+    /// Device header showing device icon and child profile
+    @ViewBuilder
+    private var deviceHeaderView: some View {
+        HStack(spacing: AppTheme.Spacing.md) {
+            // Device icon with colored ring
+            ZStack {
+                Circle()
+                    .strokeBorder(device.color, lineWidth: 3)
+                    .frame(width: 60, height: 60)
+                
+                Image(systemName: device.iconName)
+                    .font(.system(size: 32))
+                    .foregroundColor(AppTheme.Colors.textPrimary)
+            }
+            
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                Text(viewModel.childData.name)
+                    .font(AppTheme.Typography.childName)
+                    .foregroundColor(AppTheme.Colors.textPrimary)
+                
+                Text(device.name)
+                    .font(AppTheme.Typography.deviceInfo)
+                    .foregroundColor(AppTheme.Colors.textSecondary)
+            }
+            
+            Spacer()
+        }
+        .padding(AppTheme.Spacing.lg)
+        .background(AppTheme.Colors.cardBackground)
+    }
+    
     /// Scrollable list of controlled apps with access controls
     @ViewBuilder
     private var appListSection: some View {
-        if viewModel.appItems.isEmpty {
+        if filteredApps.isEmpty {
             emptyStateView
         } else {
             ScrollView {
                 VStack(spacing: AppTheme.Spacing.md) {
-                    ForEach(viewModel.appItems) { item in
+                    ForEach(filteredApps) { item in
                         appItemRow(for: item)
                     }
                 }
@@ -99,26 +135,39 @@ struct ContentView: View {
 
 // MARK: - Previews
 #Preview("Default") {
-    ContentView()
+    let viewModel = ParentalControlViewModel()
+    let device = viewModel.devices.first ?? Device.sample
+    
+    return NavigationStack {
+        ContentView(device: device, viewModel: viewModel)
+    }
 }
 
 #Preview("Empty State") {
     let viewModel = ParentalControlViewModel()
-    viewModel.appItems = []
+    let device = Device(
+        name: "Test iPad",
+        iconName: "ipad",
+        ringColor: "blue",
+        appIds: []
+    )
     
-    return ContentView()
+    return NavigationStack {
+        ContentView(device: device, viewModel: viewModel)
+    }
 }
 
 #Preview("Single App") {
     let viewModel = ParentalControlViewModel()
-    viewModel.appItems = [
-        AppItem(
-            title: "YouTube",
-            description: "Video streaming",
-            iconName: "play.rectangle.fill",
-            additionalInfo: "Allowed with restrictions"
-        )
-    ]
+    let youtubeId = viewModel.appItems.first { $0.title == "YouTube" }?.id ?? UUID()
+    let device = Device(
+        name: "Test iPad",
+        iconName: "ipad",
+        ringColor: "green",
+        appIds: [youtubeId]
+    )
     
-    return ContentView()
+    return NavigationStack {
+        ContentView(device: device, viewModel: viewModel)
+    }
 }
