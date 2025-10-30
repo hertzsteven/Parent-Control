@@ -13,6 +13,8 @@ struct TestingView: View {
     @State private var firstDeviceApps: [(name: String, bundleId: String, vendor: String, version: String, iconURL: String)] = []
     @State private var appLockResult: String?
     @State private var isTestingAppLock = false
+    @State private var unlockResult: String?
+    @State private var isTestingUnlock = false
     
     var body: some View {
         NavigationStack {
@@ -89,6 +91,26 @@ struct TestingView: View {
                 .disabled(isTestingAppLock)
                 .padding(.horizontal)
                 
+                // Test Unlock button
+                Button {
+                    Task {
+                        isTestingUnlock = true
+                        unlockResult = nil
+                        await testUnlock()
+                        isTestingUnlock = false
+                    }
+                } label: {
+                    Label("Test Unlock", systemImage: "lock.open.fill")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.orange)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                }
+                .disabled(isTestingUnlock)
+                .padding(.horizontal)
+                
                 // App Lock result display
                 if let appLockResult = appLockResult {
                     VStack(alignment: .leading, spacing: 8) {
@@ -109,6 +131,29 @@ struct TestingView: View {
                 // Loading indicator for app lock
                 if isTestingAppLock {
                     ProgressView("Testing App Lock...")
+                        .padding()
+                }
+                
+                // Unlock result display
+                if let unlockResult = unlockResult {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label(unlockResult.contains("✅") ? "Success" : "Result", 
+                              systemImage: unlockResult.contains("✅") ? "checkmark.circle.fill" : "info.circle.fill")
+                            .font(.headline)
+                            .foregroundColor(unlockResult.contains("✅") ? .green : .blue)
+                        Text(unlockResult)
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                    .background((unlockResult.contains("✅") ? Color.green : Color.blue).opacity(0.1))
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+                }
+                
+                // Loading indicator for unlock
+                if isTestingUnlock {
+                    ProgressView("Testing Unlock...")
                         .padding()
                 }
                 
@@ -379,6 +424,57 @@ struct TestingView: View {
             print(String(repeating: "=", count: 80) + "\n")
             
             appLockResult = "❌ Failed: \(error.localizedDescription)"
+        }
+    }
+    
+    // Test unlock API call
+    private func testUnlock() async {
+        print("\n" + String(repeating: "=", count: 80))
+        print("🔓 TESTING UNLOCK/STOP APP LOCK")
+        print(String(repeating: "=", count: 80))
+        
+        let networkService = NetworkService()
+        
+        do {
+            let studentId = "143"
+            let token = "1fac4ce4ddbe4d1c984432aedd02c59f"
+            
+            print("👤 Student ID: \(studentId)")
+            print("🔑 Token: \(token)")
+            
+            let response = try await networkService.stopAppLock(
+                studentId: studentId,
+                token: token
+            )
+            
+            print("\n✅ Unlock Successful!")
+            print("Success: \(response.success ?? false)")
+            if let tasks = response.tasks {
+                print("Tasks: \(tasks.count)")
+                for task in tasks {
+                    print("  - Student: \(task.student)")
+                    print("    UUID: \(task.UUID)")
+                    print("    Status: \(task.status)")
+                }
+            }
+            print(String(repeating: "=", count: 80) + "\n")
+            
+            let taskInfo = response.tasks?.first.map { 
+                "\nStudent: \($0.student)\nStatus: \($0.status)" 
+            } ?? ""
+            unlockResult = "✅ SUCCESS!\n\nApp lock removed for student \(studentId)\(taskInfo)"
+            
+        } catch let error as NetworkError {
+            print("\n❌ Unlock Failed!")
+            print("⚠️ Error: \(error.localizedDescription)")
+            print(String(repeating: "=", count: 80) + "\n")
+            unlockResult = "❌ Failed: \(error.localizedDescription)"
+            
+        } catch {
+            print("\n❌ Unlock Failed!")
+            print("⚠️ Unknown Error: \(error.localizedDescription)")
+            print(String(repeating: "=", count: 80) + "\n")
+            unlockResult = "❌ Failed: \(error.localizedDescription)"
         }
     }
 }

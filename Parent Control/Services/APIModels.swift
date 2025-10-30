@@ -141,6 +141,30 @@ struct AppLockResponse: Codable {
     let message: String?
 }
 
+// MARK: - Stop App Lock (Unlock) Request/Response
+
+/// Request body for stopping app lock (unlocking)
+struct StopAppLockRequest: Codable {
+    let scope: String  // "student"
+    let scopeId: String  // Student ID (e.g., "143")
+}
+
+/// Task in unlock response
+struct UnlockTask: Codable {
+    let id: String
+    let student: String
+    let UUID: String
+    let status: String
+    let errorMessage: String?
+    let errorDomain: String?
+}
+
+/// Response from stop app lock endpoint
+struct StopAppLockResponse: Codable {
+    let tasks: [UnlockTask]?
+    let success: Bool?
+}
+
 // MARK: - Error Response
 
 /// Error response from Zuludesk API

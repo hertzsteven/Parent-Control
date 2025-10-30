@@ -10,6 +10,7 @@ import SwiftUI
 /// Represents a physical device (iPad) with associated apps
 struct Device: Identifiable, Codable, Equatable, Hashable {
     let id: UUID
+    let udid: String // Device UDID for API calls
     let name: String
     let iconName: String
     let ringColor: String // Stored as string for Codable, converted to Color in UI
@@ -17,12 +18,14 @@ struct Device: Identifiable, Codable, Equatable, Hashable {
     
     init(
         id: UUID = UUID(),
+        udid: String,
         name: String,
         iconName: String,
         ringColor: String,
         appIds: [UUID] = []
     ) {
         self.id = id
+        self.udid = udid
         self.name = name
         self.iconName = iconName
         self.ringColor = ringColor
@@ -59,6 +62,7 @@ struct Device: Identifiable, Codable, Equatable, Hashable {
 extension Device {
     /// Sample device for previews and testing
     static let sample = Device(
+        udid: "00008120-0000000000000000",
         name: "Living Room iPad",
         iconName: "ipad.gen1",
         ringColor: "blue",
@@ -68,18 +72,21 @@ extension Device {
     /// Collection of sample devices for previews
     static let samples: [Device] = [
         Device(
+            udid: "00008120-0000000000000001",
             name: "Living Room iPad",
             iconName: "ipad.gen1",
             ringColor: "blue",
             appIds: []
         ),
         Device(
+            udid: "00008120-0000000000000002",
             name: "Bedroom iPad",
             iconName: "ipad.gen2",
             ringColor: "green",
             appIds: []
         ),
         Device(
+            udid: "00008120-0000000000000003",
             name: "Kids Room iPad",
             iconName: "ipad.landscape",
             ringColor: "purple",

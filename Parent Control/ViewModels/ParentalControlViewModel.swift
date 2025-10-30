@@ -37,6 +37,9 @@ final class ParentalControlViewModel {
     /// Network service for API calls
     private let networkService: NetworkService
     
+    /// API configuration for accessing tokens and settings
+    private let configuration: APIConfiguration
+    
     /// Raw device DTOs with app info (for debugging/display)
     var deviceDTOs: [DeviceDTO] = []
     
@@ -46,9 +49,11 @@ final class ParentalControlViewModel {
         childData: ChildData? = nil,
         appItems: [AppItem]? = nil,
         devices: [Device]? = nil,
-        networkService: NetworkService = NetworkService()
+        networkService: NetworkService = NetworkService(),
+        configuration: APIConfiguration = .default
     ) {
         self.networkService = networkService
+        self.configuration = configuration
         // Store app items in local variable first
         let initialAppItems = appItems ?? Self.defaultAppItems
         
@@ -119,24 +124,28 @@ final class ParentalControlViewModel {
         
         return [
             Device(
+                udid: "00008120-0000000000000001",
                 name: "Living Room iPad",
                 iconName: "ipad.gen1",
                 ringColor: "blue",
                 appIds: [youtubeId, safariId, musicId].compactMap { $0 }
             ),
             Device(
+                udid: "00008120-0000000000000002",
                 name: "Bedroom iPad",
                 iconName: "ipad.gen2",
                 ringColor: "green",
                 appIds: [youtubeId, booksId, photosId, musicId].compactMap { $0 }
             ),
             Device(
+                udid: "00008120-0000000000000003",
                 name: "Kids Room iPad",
                 iconName: "ipad.landscape",
                 ringColor: "purple",
                 appIds: [youtubeId, appStoreId, booksId, photosId].compactMap { $0 }
             ),
             Device(
+                udid: "00008120-0000000000000004",
                 name: "Study iPad",
                 iconName: "ipad",
                 ringColor: "orange",
@@ -181,6 +190,84 @@ final class ParentalControlViewModel {
         // - Persist changes
         // - Notify user of change
         print("Decreasing access for: \(item.title)")
+    }
+    
+    /// Lock device to a specific app (two-step process)
+    /// - Parameters:
+    ///   - device: The device to lock
+    ///   - app: The app to lock the device to
+    /// - Returns: Result with success message or error
+    func lockDeviceToApp(device: Device, app: AppItem) async -> Result<String, Error> {
+        print("\n" + String(repeating: "=", count: 80))
+        print("🔒 LOCKING DEVICE TO APP")
+        print(String(repeating: "=", count: 80))
+        
+        // Validate bundle ID
+        guard let bundleId = app.bundleId else {
+            let errorMessage = "App \(app.title) has no bundle ID"
+            print("❌ Error: \(errorMessage)")
+            print(String(repeating: "=", count: 80) + "\n")
+            return .failure(NSError(domain: "ParentalControl", code: -1, 
+                                  userInfo: [NSLocalizedDescriptionKey: errorMessage]))
+        }
+        
+        // Hardcoded values as specified
+        let userId = "143"
+        let clearAfter = 60 // seconds
+        
+        do {
+            // STEP 1: Set Device Owner
+            print("\n📍 STEP 1: Setting Device Owner")
+            print(String(repeating: "-", count: 80))
+            print("🔧 Device UDID: \(device.udid)")
+            print("👤 User ID: \(userId)")
+            
+            let ownerResponse = try await networkService.setDeviceOwner(
+                deviceUDID: device.udid,
+                userId: userId
+            )
+            
+            print("✅ Device Owner Set Successfully!")
+            if let message = ownerResponse.message {
+                print("📄 Response: \(message)")
+            }
+            
+            // STEP 2: Apply App Lock
+            print("\n📍 STEP 2: Applying App Lock")
+            print(String(repeating: "-", count: 80))
+            print("📱 Bundle ID: \(bundleId)")
+            print("⏱️ Clear After: \(clearAfter) seconds")
+            print("👨‍🎓 Student IDs: \(userId)")
+            print("🔑 Token: \(configuration.teacherToken)")
+            
+            let lockResponse = try await networkService.applyAppLock(
+                bundleId: bundleId,
+                clearAfterSeconds: clearAfter,
+                studentIds: [userId],
+                token: configuration.teacherToken
+            )
+            
+            print("\n✅ App Lock Applied Successfully!")
+            if let message = lockResponse.message {
+                print("📄 Response: \(message)")
+            }
+            print(String(repeating: "=", count: 80) + "\n")
+            
+            let successMessage = "Device locked to \(app.title) for \(clearAfter) seconds"
+            return .success(successMessage)
+            
+        } catch let error as NetworkError {
+            print("\n❌ Process Failed!")
+            print("⚠️ Error: \(error.localizedDescription)")
+            print(String(repeating: "=", count: 80) + "\n")
+            return .failure(error)
+            
+        } catch {
+            print("\n❌ Process Failed!")
+            print("⚠️ Unknown Error: \(error.localizedDescription)")
+            print(String(repeating: "=", count: 80) + "\n")
+            return .failure(error)
+        }
     }
     
     // MARK: - Network Operations

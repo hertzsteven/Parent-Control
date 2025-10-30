@@ -103,6 +103,7 @@ extension DeviceDTO {
         } ?? []
         
         return Device(
+            udid: udid,
             name: name,
             iconName: mapToIconName(),
             ringColor: mapToRingColor(),

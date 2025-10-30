@@ -139,6 +139,40 @@ final class NetworkService {
         return response
     }
     
+    /// Stop app lock (unlock) for a specific student
+    /// - Parameters:
+    ///   - studentId: The student ID to unlock (e.g., "143")
+    ///   - token: Authentication token for the teacher API
+    /// - Returns: StopAppLockResponse
+    /// - Throws: NetworkError if request fails
+    func stopAppLock(
+        studentId: String,
+        token: String
+    ) async throws -> StopAppLockResponse {
+        let endpoint = "/teacher/lessons/stop?token=\(token)"
+        
+        let requestBody = StopAppLockRequest(
+            scope: "student",
+            scopeId: studentId
+        )
+        
+        // Convert to form URL-encoded format
+        let bodyString = "scope=\(requestBody.scope)&scopeId=\(requestBody.scopeId)"
+        let bodyData = bodyString.data(using: .utf8)
+        
+        // Use custom request method with protocol version 4 and cookie
+        let response: StopAppLockResponse = try await request(
+            endpoint: endpoint,
+            method: "POST",
+            body: bodyData,
+            contentType: "application/x-www-form-urlencoded; charset=utf-8",
+            protocolVersion: "4",
+            additionalHeaders: ["Cookie": "hash=c683a60c07d2f6e4b1fd4e385d034954"]
+        )
+        
+        return response
+    }
+    
     // MARK: - Private Methods
     
     /// Generic request method for API calls

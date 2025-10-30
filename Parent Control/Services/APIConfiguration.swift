@@ -23,18 +23,23 @@ struct APIConfiguration {
     /// API version (defaults to 1)
     let apiVersion: String
     
+    /// Teacher API token for app lock operations
+    let teacherToken: String
+    
     // MARK: - Initialization
     
     init(
         baseURL: String = "developitsnfrEDU.jamfcloud.com/api",
         networkID: String = "65319076",
         apiKey: String = "MCSMD6VC7MCKUNN8MJ5CDA96R1HZBGAV",
-        apiVersion: String = "1"
+        apiVersion: String = "1",
+        teacherToken: String = "1fac4ce4ddbe4d1c984432aedd02c59f"
     ) {
         self.baseURL = baseURL
         self.networkID = networkID
         self.apiKey = apiKey
         self.apiVersion = apiVersion
+        self.teacherToken = teacherToken
     }
     
     // MARK: - Computed Properties

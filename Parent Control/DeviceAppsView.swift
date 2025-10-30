@@ -7,6 +7,10 @@ struct DeviceAppsView: View {
     var viewModel: ParentalControlViewModel
     
     @State private var filteredApps: [AppItem] = []
+    @State private var isLocking: Bool = false
+    @State private var showAlert: Bool = false
+    @State private var alertTitle: String = ""
+    @State private var alertMessage: String = ""
     
     var body: some View {
         ZStack {
@@ -18,9 +22,32 @@ struct DeviceAppsView: View {
 //                deviceHeaderView
                 appListSection
             }
+            
+            // Loading overlay
+            if isLocking {
+                Color.black.opacity(0.4)
+                    .ignoresSafeArea()
+                
+                VStack(spacing: 20) {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    Text("Locking device...")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                }
+                .padding(40)
+                .background(Color.gray.opacity(0.9))
+                .cornerRadius(16)
+            }
         }
         .navigationDestination(for: AppItem.self) { item in
             DetailView(item: item)
+        }
+        .alert(alertTitle, isPresented: $showAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(alertMessage)
         }
         .onAppear {
             filteredApps = viewModel.appsForDevice(device)
@@ -116,17 +143,45 @@ struct DeviceAppsView: View {
         }
     }
     
-    /// Individual app row with navigation and access controls
+    /// Individual app row with lock functionality
     @ViewBuilder
     private func appItemRow(for item: AppItem) -> some View {
-        NavigationLink(value: item) {
+        Button {
+            lockDeviceToApp(item)
+        } label: {
             TileView(
                 item: item,
                 onIncrease: { viewModel.increaseAccess(for: item) },
                 onDecrease: { viewModel.decreaseAccess(for: item) }
             )
         }
-        .buttonStyle(.navigationLink)
+        .buttonStyle(.plain)
+        .disabled(isLocking)
+    }
+    
+    /// Lock device to the selected app
+    private func lockDeviceToApp(_ app: AppItem) {
+        guard !isLocking else { return }
+        
+        Task {
+            isLocking = true
+            
+            let result = await viewModel.lockDeviceToApp(device: device, app: app)
+            
+            isLocking = false
+            
+            switch result {
+            case .success(let message):
+                alertTitle = "Success"
+                alertMessage = message
+                showAlert = true
+                
+            case .failure(let error):
+                alertTitle = "Error"
+                alertMessage = error.localizedDescription
+                showAlert = true
+            }
+        }
     }
     
     /// Empty state view when no apps are being controlled
@@ -166,6 +221,7 @@ struct DeviceAppsView: View {
 #Preview("Empty State") {
     let viewModel = ParentalControlViewModel()
     let device = Device(
+        udid: "00008120-0000000000000000",
         name: "Test iPad",
         iconName: "ipad",
         ringColor: "blue",
@@ -181,6 +237,7 @@ struct DeviceAppsView: View {
     let viewModel = ParentalControlViewModel()
     let youtubeId = viewModel.appItems.first { $0.title == "YouTube" }?.id ?? UUID()
     let device = Device(
+        udid: "00008120-0000000000000000",
         name: "Test iPad",
         iconName: "ipad",
         ringColor: "green",
