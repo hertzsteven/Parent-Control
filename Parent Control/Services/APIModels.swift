@@ -113,6 +113,34 @@ struct DeviceOwner: Codable {
     let name: String?
 }
 
+// MARK: - Set Device Owner Request/Response
+
+/// Request body for setting device owner
+struct SetDeviceOwnerRequest: Codable {
+    let user: String  // User ID to set as owner (e.g., "143")
+}
+
+/// Response from set device owner endpoint
+struct SetDeviceOwnerResponse: Codable {
+    let success: Bool?
+    let message: String?
+}
+
+// MARK: - App Lock Request/Response
+
+/// Request body for applying app lock (whitelist) to students
+struct AppLockRequest: Codable {
+    let apps: String  // Bundle ID of the app to whitelist (e.g., "com.thup.MonkeyMath")
+    let clearAfter: String  // Duration in seconds before clearing the lock (e.g., "60")
+    let students: String  // Comma-separated student IDs (e.g., "143")
+}
+
+/// Response from app lock endpoint
+struct AppLockResponse: Codable {
+    let success: Bool?
+    let message: String?
+}
+
 // MARK: - Error Response
 
 /// Error response from Zuludesk API

@@ -11,6 +11,8 @@ struct TestingView: View {
     @State private var viewModel = ParentalControlViewModel()
     @State private var showResults = false
     @State private var firstDeviceApps: [(name: String, bundleId: String, vendor: String, version: String, iconURL: String)] = []
+    @State private var appLockResult: String?
+    @State private var isTestingAppLock = false
     
     var body: some View {
         NavigationStack {
@@ -66,6 +68,49 @@ struct TestingView: View {
                 }
                 .disabled(viewModel.isLoading)
                 .padding(.horizontal)
+                
+                // Test App Lock button
+                Button {
+                    Task {
+                        isTestingAppLock = true
+                        appLockResult = nil
+                        await testAppLock()
+                        isTestingAppLock = false
+                    }
+                } label: {
+                    Label("Test App Lock", systemImage: "lock.fill")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.purple)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                }
+                .disabled(isTestingAppLock)
+                .padding(.horizontal)
+                
+                // App Lock result display
+                if let appLockResult = appLockResult {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label(appLockResult.contains("✅") ? "Success" : "Result", 
+                              systemImage: appLockResult.contains("✅") ? "checkmark.circle.fill" : "info.circle.fill")
+                            .font(.headline)
+                            .foregroundColor(appLockResult.contains("✅") ? .green : .blue)
+                        Text(appLockResult)
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                    .background((appLockResult.contains("✅") ? Color.green : Color.blue).opacity(0.1))
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+                }
+                
+                // Loading indicator for app lock
+                if isTestingAppLock {
+                    ProgressView("Testing App Lock...")
+                        .padding()
+                }
                 
                 // Error message
                 if let error = viewModel.errorMessage {
@@ -264,6 +309,77 @@ struct TestingView: View {
         print("\n" + String(repeating: "=", count: 60))
         print("✅ Test completed!")
         print(String(repeating: "=", count: 60) + "\n")
+    }
+    
+    // Test app lock API call (with device owner setup first)
+    private func testAppLock() async {
+        print("\n" + String(repeating: "=", count: 80))
+        print("🔒 TESTING TWO-STEP APP LOCK PROCESS")
+        print(String(repeating: "=", count: 80))
+        
+        let networkService = NetworkService()
+        
+        do {
+            // Test parameters
+            let deviceUDID = "00008120-0012391420214032"
+            let userId = "143"
+            let bundleId = "com.thup.MonkeyMath"
+            let clearAfter = 60 // seconds
+            let token = "1fac4ce4ddbe4d1c984432aedd02c59f"
+            
+            // STEP 1: Set Device Owner
+            print("\n📍 STEP 1: Setting Device Owner")
+            print(String(repeating: "-", count: 80))
+            print("🔧 Device UDID: \(deviceUDID)")
+            print("👤 User ID: \(userId)")
+            
+            let ownerResponse = try await networkService.setDeviceOwner(
+                deviceUDID: deviceUDID,
+                userId: userId
+            )
+            
+            print("✅ Device Owner Set Successfully!")
+            if let message = ownerResponse.message {
+                print("📄 Response: \(message)")
+            }
+            
+            // STEP 2: Apply App Lock (only if step 1 succeeded)
+            print("\n📍 STEP 2: Applying App Lock")
+            print(String(repeating: "-", count: 80))
+            print("📱 Bundle ID: \(bundleId)")
+            print("⏱️ Clear After: \(clearAfter) seconds")
+            print("👨‍🎓 Student IDs: \(userId)")
+            print("🔑 Token: \(token)")
+            
+            let lockResponse = try await networkService.applyAppLock(
+                bundleId: bundleId,
+                clearAfterSeconds: clearAfter,
+                studentIds: [userId],
+                token: token
+            )
+            
+            print("\n✅ App Lock Applied Successfully!")
+            if let message = lockResponse.message {
+                print("📄 Response: \(message)")
+            }
+            print(String(repeating: "=", count: 80) + "\n")
+            
+            appLockResult = "✅ SUCCESS!\n\nStep 1: Device owner set to user \(userId)\nStep 2: App lock applied\n\nApp: \(bundleId)\nDuration: \(clearAfter) seconds\nStudent: \(userId)"
+            
+        } catch let error as NetworkError {
+            print("\n❌ Process Failed!")
+            print("⚠️ Error: \(error.localizedDescription)")
+            print(String(repeating: "=", count: 80) + "\n")
+            
+            appLockResult = "❌ Failed: \(error.localizedDescription)"
+            
+        } catch {
+            print("\n❌ Process Failed!")
+            print("⚠️ Unknown Error: \(error.localizedDescription)")
+            print(String(repeating: "=", count: 80) + "\n")
+            
+            appLockResult = "❌ Failed: \(error.localizedDescription)"
+        }
     }
 }
 

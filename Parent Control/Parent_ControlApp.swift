@@ -11,7 +11,7 @@ import SwiftUI
 struct Parent_ControlApp: App {
     var body: some Scene {
         WindowGroup {
-            DeviceSelectionView()
+            TestingView()
         }
     }
 }

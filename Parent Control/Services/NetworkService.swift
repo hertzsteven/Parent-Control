@@ -76,6 +76,69 @@ final class NetworkService {
         return response.devices
     }
     
+    /// Set device owner
+    /// - Parameters:
+    ///   - deviceUDID: The UDID of the device
+    ///   - userId: The user ID to set as owner
+    /// - Returns: SetDeviceOwnerResponse
+    /// - Throws: NetworkError if request fails
+    func setDeviceOwner(
+        deviceUDID: String,
+        userId: String
+    ) async throws -> SetDeviceOwnerResponse {
+        let endpoint = "/devices/\(deviceUDID)/owner"
+        
+        let requestBody = SetDeviceOwnerRequest(user: userId)
+        let bodyData = try JSONEncoder().encode(requestBody)
+        
+        // Use custom request method with text/plain content type and cookie
+        let response: SetDeviceOwnerResponse = try await request(
+            endpoint: endpoint,
+            method: "PUT",
+            body: bodyData,
+            contentType: "text/plain; charset=utf-8",
+            additionalHeaders: ["Cookie": "hash=c683a60c07d2f6e4b1fd4e385d034954"]
+        )
+        
+        return response
+    }
+    
+    /// Apply app lock (whitelist) to specific students
+    /// - Parameters:
+    ///   - bundleId: Bundle ID of the app to whitelist (e.g., "com.thup.MonkeyMath")
+    ///   - clearAfterSeconds: Duration in seconds before clearing the lock
+    ///   - studentIds: Array of student IDs to apply the lock to
+    ///   - token: Authentication token for the teacher API
+    /// - Returns: AppLockResponse
+    /// - Throws: NetworkError if request fails
+    func applyAppLock(
+        bundleId: String,
+        clearAfterSeconds: Int,
+        studentIds: [String],
+        token: String
+    ) async throws -> AppLockResponse {
+        let endpoint = "/teacher/apply/applock?token=\(token)"
+        
+        let requestBody = AppLockRequest(
+            apps: bundleId,
+            clearAfter: String(clearAfterSeconds),
+            students: studentIds.joined(separator: ",")
+        )
+        
+        let bodyData = try JSONEncoder().encode(requestBody)
+        
+        // Use custom request method with protocol version 2 and cookie
+        let response: AppLockResponse = try await request(
+            endpoint: endpoint,
+            method: "POST",
+            body: bodyData,
+            protocolVersion: "2",
+            additionalHeaders: ["Cookie": "hash=c683a60c07d2f6e4b1fd4e385d034954"]
+        )
+        
+        return response
+    }
+    
     // MARK: - Private Methods
     
     /// Generic request method for API calls
@@ -83,12 +146,18 @@ final class NetworkService {
     ///   - endpoint: API endpoint path (e.g., "/apps/")
     ///   - method: HTTP method (GET, POST, etc.)
     ///   - body: Optional request body data
+    ///   - contentType: Optional content type override (default: "application/json")
+    ///   - protocolVersion: Optional protocol version override (default: uses config value)
+    ///   - additionalHeaders: Optional additional headers to include
     /// - Returns: Decoded response of type T
     /// - Throws: NetworkError if request fails
     private func request<T: Decodable>(
         endpoint: String,
         method: String,
-        body: Data? = nil
+        body: Data? = nil,
+        contentType: String? = nil,
+        protocolVersion: String? = nil,
+        additionalHeaders: [String: String]? = nil
     ) async throws -> T {
         // Construct URL
         guard let url = URL(string: "\(configuration.fullBaseURL)\(endpoint)") else {
@@ -104,8 +173,15 @@ final class NetworkService {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue(configuration.authorizationHeader, forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(configuration.apiVersion, forHTTPHeaderField: "X-Server-Protocol-Version")
+        request.setValue(contentType ?? "application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(protocolVersion ?? configuration.apiVersion, forHTTPHeaderField: "X-Server-Protocol-Version")
+        
+        // Add any additional headers
+        if let additionalHeaders = additionalHeaders {
+            for (key, value) in additionalHeaders {
+                request.setValue(value, forHTTPHeaderField: key)
+            }
+        }
         
         if let body = body {
             request.httpBody = body
