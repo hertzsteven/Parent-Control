@@ -102,12 +102,16 @@ extension DeviceDTO {
             return bundleIdMapping[bundleId]
         } ?? []
         
+        // Extract owner ID and convert to String (will be nil if not assigned)
+        let ownerIdString = owner?.id.map { String($0) }
+        
         return Device(
             udid: udid,
             name: name,
             iconName: mapToIconName(),
             ringColor: mapToRingColor(),
-            appIds: mappedAppIds
+            appIds: mappedAppIds,
+            ownerId: ownerIdString
         )
     }
     

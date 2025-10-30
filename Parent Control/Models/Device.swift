@@ -15,6 +15,7 @@ struct Device: Identifiable, Codable, Equatable, Hashable {
     let iconName: String
     let ringColor: String // Stored as string for Codable, converted to Color in UI
     let appIds: [UUID] // IDs of apps associated with this device
+    let ownerId: String? // Owner/Student ID from API (nil if not assigned)
     
     init(
         id: UUID = UUID(),
@@ -22,7 +23,8 @@ struct Device: Identifiable, Codable, Equatable, Hashable {
         name: String,
         iconName: String,
         ringColor: String,
-        appIds: [UUID] = []
+        appIds: [UUID] = [],
+        ownerId: String? = nil
     ) {
         self.id = id
         self.udid = udid
@@ -30,6 +32,7 @@ struct Device: Identifiable, Codable, Equatable, Hashable {
         self.iconName = iconName
         self.ringColor = ringColor
         self.appIds = appIds
+        self.ownerId = ownerId
     }
     
     /// Convert stored color string to SwiftUI Color
@@ -55,6 +58,16 @@ struct Device: Identifiable, Codable, Equatable, Hashable {
             return .blue
         }
     }
+    
+    /// Whether this device has a valid owner assigned
+    var hasOwner: Bool {
+        return ownerId != nil && !ownerId!.isEmpty
+    }
+    
+    /// User-friendly message explaining why owner is needed
+    var ownerRequirementMessage: String {
+        return "This device has no owner assigned. Please assign an owner in Zuludesk before managing app locks."
+    }
 }
 
 // MARK: - Mock Data for Previews
@@ -66,7 +79,8 @@ extension Device {
         name: "Living Room iPad",
         iconName: "ipad.gen1",
         ringColor: "blue",
-        appIds: []
+        appIds: [],
+        ownerId: "143"
     )
     
     /// Collection of sample devices for previews
@@ -76,21 +90,24 @@ extension Device {
             name: "Living Room iPad",
             iconName: "ipad.gen1",
             ringColor: "blue",
-            appIds: []
+            appIds: [],
+            ownerId: "143"
         ),
         Device(
             udid: "00008120-0000000000000002",
             name: "Bedroom iPad",
             iconName: "ipad.gen2",
             ringColor: "green",
-            appIds: []
+            appIds: [],
+            ownerId: "143"
         ),
         Device(
             udid: "00008120-0000000000000003",
             name: "Kids Room iPad",
             iconName: "ipad.landscape",
             ringColor: "purple",
-            appIds: []
+            appIds: [],
+            ownerId: "143"
         )
     ]
 }

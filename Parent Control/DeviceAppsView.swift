@@ -8,9 +8,11 @@ struct DeviceAppsView: View {
     
     @State private var filteredApps: [AppItem] = []
     @State private var isLocking: Bool = false
+    @State private var isUnlocking: Bool = false
     @State private var showAlert: Bool = false
     @State private var alertTitle: String = ""
     @State private var alertMessage: String = ""
+    @State private var showOwnerWarning: Bool = false
     
     var body: some View {
         ZStack {
@@ -24,7 +26,7 @@ struct DeviceAppsView: View {
             }
             
             // Loading overlay
-            if isLocking {
+            if isLocking || isUnlocking {
                 Color.black.opacity(0.4)
                     .ignoresSafeArea()
                 
@@ -32,7 +34,7 @@ struct DeviceAppsView: View {
                     ProgressView()
                         .scaleEffect(1.5)
                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                    Text("Locking device...")
+                    Text(isUnlocking ? "Unlocking device..." : "Preparing device lock...")
                         .font(.headline)
                         .foregroundColor(.white)
                 }
@@ -48,6 +50,11 @@ struct DeviceAppsView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text(alertMessage)
+        }
+        .alert("Owner Required", isPresented: $showOwnerWarning) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(device.ownerRequirementMessage)
         }
         .onAppear {
             filteredApps = viewModel.appsForDevice(device)
@@ -81,15 +88,47 @@ struct DeviceAppsView: View {
                         .font(AppTheme.Typography.childName)
                         .foregroundColor(AppTheme.Colors.textPrimary)
                     
+                    // Show owner info
+                    if let ownerId = device.ownerId {
+                        Text("Owner ID: \(ownerId)")
+                            .font(.caption2)
+                            .foregroundColor(AppTheme.Colors.textSecondary)
+                    } else {
+                        HStack(spacing: 4) {
+                            Image(systemName: "exclamationmark.circle.fill")
+                                .font(.caption2)
+                            Text("No owner assigned")
+                                .font(.caption2)
+                        }
+                        .foregroundColor(.orange)
+                    }
                 }
             }
             
             Spacer()
             
-            Button(action: { /* TODO: Add menu functionality */ }) {
-                Image(systemName: "ellipsis")
-                    .font(AppTheme.Typography.navigationTitle)
+            Button(action: {
+                if device.hasOwner {
+                    unlockDevice()
+                } else {
+                    showOwnerWarning = true
+                }
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "lock.open.fill")
+                        .font(.subheadline)
+                    Text("Unlock")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.orange)
+                .cornerRadius(8)
             }
+            .disabled(isLocking || isUnlocking || !device.hasOwner)
+            .opacity((isLocking || isUnlocking || !device.hasOwner) ? 0.5 : 1.0)
         }
         .navigationBarStyle()
         .padding(.bottom, AppTheme.Spacing.md)
@@ -133,6 +172,23 @@ struct DeviceAppsView: View {
         } else {
             ScrollView {
                 VStack(spacing: AppTheme.Spacing.md) {
+                    // Instructional header
+                    HStack(spacing: 8) {
+                        Image(systemName: device.hasOwner ? "hand.tap.fill" : "exclamationmark.triangle.fill")
+                            .font(.subheadline)
+                            .foregroundColor(device.hasOwner ? AppTheme.Colors.textSecondary : .orange)
+                        Text(device.hasOwner 
+                            ? "Tap any app to lock the device to it"
+                            : "Device has no owner - cannot lock apps")
+                            .font(.subheadline)
+                            .foregroundColor(device.hasOwner ? AppTheme.Colors.textSecondary : .orange)
+                        Spacer()
+                    }
+                    .padding(.horizontal, AppTheme.Spacing.lg)
+                    .padding(.top, AppTheme.Spacing.sm)
+                    .padding(.bottom, AppTheme.Spacing.xs)
+                    
+                    // App list
                     ForEach(filteredApps) { item in
                         appItemRow(for: item)
                     }
@@ -147,7 +203,11 @@ struct DeviceAppsView: View {
     @ViewBuilder
     private func appItemRow(for item: AppItem) -> some View {
         Button {
-            lockDeviceToApp(item)
+            if device.hasOwner {
+                lockDeviceToApp(item)
+            } else {
+                showOwnerWarning = true
+            }
         } label: {
             TileView(
                 item: item,
@@ -156,7 +216,8 @@ struct DeviceAppsView: View {
             )
         }
         .buttonStyle(.plain)
-        .disabled(isLocking)
+        .disabled(isLocking || !device.hasOwner)
+        .opacity(device.hasOwner ? 1.0 : 0.6)
     }
     
     /// Lock device to the selected app
@@ -173,6 +234,31 @@ struct DeviceAppsView: View {
             switch result {
             case .success(let message):
                 alertTitle = "Success"
+                alertMessage = message
+                showAlert = true
+                
+            case .failure(let error):
+                alertTitle = "Error"
+                alertMessage = error.localizedDescription
+                showAlert = true
+            }
+        }
+    }
+    
+    /// Unlock device by removing all app locks
+    private func unlockDevice() {
+        guard !isUnlocking else { return }
+        
+        Task {
+            isUnlocking = true
+            
+            let result = await viewModel.unlockDevice(device: device)
+            
+            isUnlocking = false
+            
+            switch result {
+            case .success(let message):
+                alertTitle = "Device Unlocked"
                 alertMessage = message
                 showAlert = true
                 

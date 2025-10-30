@@ -128,28 +128,32 @@ final class ParentalControlViewModel {
                 name: "Living Room iPad",
                 iconName: "ipad.gen1",
                 ringColor: "blue",
-                appIds: [youtubeId, safariId, musicId].compactMap { $0 }
+                appIds: [youtubeId, safariId, musicId].compactMap { $0 },
+                ownerId: "143"
             ),
             Device(
                 udid: "00008120-0000000000000002",
                 name: "Bedroom iPad",
                 iconName: "ipad.gen2",
                 ringColor: "green",
-                appIds: [youtubeId, booksId, photosId, musicId].compactMap { $0 }
+                appIds: [youtubeId, booksId, photosId, musicId].compactMap { $0 },
+                ownerId: "143"
             ),
             Device(
                 udid: "00008120-0000000000000003",
                 name: "Kids Room iPad",
                 iconName: "ipad.landscape",
                 ringColor: "purple",
-                appIds: [youtubeId, appStoreId, booksId, photosId].compactMap { $0 }
+                appIds: [youtubeId, appStoreId, booksId, photosId].compactMap { $0 },
+                ownerId: "143"
             ),
             Device(
                 udid: "00008120-0000000000000004",
                 name: "Study iPad",
                 iconName: "ipad",
                 ringColor: "orange",
-                appIds: [safariId, booksId, photosId].compactMap { $0 }
+                appIds: [safariId, booksId, photosId].compactMap { $0 },
+                ownerId: "143"
             )
         ]
     }
@@ -211,25 +215,33 @@ final class ParentalControlViewModel {
                                   userInfo: [NSLocalizedDescriptionKey: errorMessage]))
         }
         
-        // Hardcoded values as specified
-        let userId = "143"
+        // STRICT REQUIREMENT: Must have owner, no fallback
+        guard let userId = device.ownerId else {
+            let errorMessage = "Device \(device.name) has no owner assigned"
+            print("❌ Error: \(errorMessage)")
+            print(String(repeating: "=", count: 80) + "\n")
+            return .failure(NSError(domain: "ParentalControl", code: -2,
+                                  userInfo: [NSLocalizedDescriptionKey: errorMessage]))
+        }
+        
         let clearAfter = 60 // seconds
         
         do {
-            // STEP 1: Set Device Owner
-            print("\n📍 STEP 1: Setting Device Owner")
+            // STEP 1: Unlock Device (clear any existing app lock)
+            print("\n📍 STEP 1: Unlocking Device")
             print(String(repeating: "-", count: 80))
-            print("🔧 Device UDID: \(device.udid)")
-            print("👤 User ID: \(userId)")
+            print("🔓 Clearing any existing app locks...")
+            print("👤 Student ID: \(userId)")
+            print("🔑 Token: \(configuration.teacherToken)")
             
-            let ownerResponse = try await networkService.setDeviceOwner(
-                deviceUDID: device.udid,
-                userId: userId
+            let unlockResponse = try await networkService.stopAppLock(
+                studentId: userId,
+                token: configuration.teacherToken
             )
             
-            print("✅ Device Owner Set Successfully!")
-            if let message = ownerResponse.message {
-                print("📄 Response: \(message)")
+            print("✅ Device Unlocked Successfully!")
+            if let tasks = unlockResponse.tasks, !tasks.isEmpty {
+                print("📄 Removed \(tasks.count) existing lock(s)")
             }
             
             // STEP 2: Apply App Lock
@@ -264,6 +276,63 @@ final class ParentalControlViewModel {
             
         } catch {
             print("\n❌ Process Failed!")
+            print("⚠️ Unknown Error: \(error.localizedDescription)")
+            print(String(repeating: "=", count: 80) + "\n")
+            return .failure(error)
+        }
+    }
+    
+    /// Unlock device by stopping any active app locks
+    /// - Parameter device: The device to unlock
+    /// - Returns: Result with success message or error
+    func unlockDevice(device: Device) async -> Result<String, Error> {
+        print("\n" + String(repeating: "=", count: 80))
+        print("🔓 UNLOCKING DEVICE")
+        print(String(repeating: "=", count: 80))
+        
+        // STRICT REQUIREMENT: Must have owner, no fallback
+        guard let userId = device.ownerId else {
+            let errorMessage = "Device \(device.name) has no owner assigned"
+            print("❌ Error: \(errorMessage)")
+            print(String(repeating: "=", count: 80) + "\n")
+            return .failure(NSError(domain: "ParentalControl", code: -2,
+                                  userInfo: [NSLocalizedDescriptionKey: errorMessage]))
+        }
+        
+        do {
+            print("\n📍 Removing App Locks")
+            print(String(repeating: "-", count: 80))
+            print("🔧 Device: \(device.name)")
+            print("👤 Student ID: \(userId)")
+            print("🔑 Token: \(configuration.teacherToken)")
+            
+            let unlockResponse = try await networkService.stopAppLock(
+                studentId: userId,
+                token: configuration.teacherToken
+            )
+            
+            print("\n✅ Device Unlocked Successfully!")
+            if let tasks = unlockResponse.tasks, !tasks.isEmpty {
+                print("📄 Removed \(tasks.count) app lock(s)")
+                for task in tasks {
+                    print("   - Student: \(task.student), Status: \(task.status)")
+                }
+            } else {
+                print("📄 No active locks found (device was already unlocked)")
+            }
+            print(String(repeating: "=", count: 80) + "\n")
+            
+            let successMessage = "\(device.name) has been unlocked"
+            return .success(successMessage)
+            
+        } catch let error as NetworkError {
+            print("\n❌ Unlock Failed!")
+            print("⚠️ Error: \(error.localizedDescription)")
+            print(String(repeating: "=", count: 80) + "\n")
+            return .failure(error)
+            
+        } catch {
+            print("\n❌ Unlock Failed!")
             print("⚠️ Unknown Error: \(error.localizedDescription)")
             print(String(repeating: "=", count: 80) + "\n")
             return .failure(error)
