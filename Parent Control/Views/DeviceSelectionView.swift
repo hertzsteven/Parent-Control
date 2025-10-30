@@ -39,7 +39,7 @@ struct DeviceSelectionView: View {
                 }
             }
             .navigationDestination(for: Device.self) { device in
-                ContentView(device: device, viewModel: viewModel)
+                DeviceAppsView(device: device, viewModel: viewModel)
             }
             .task {
                 // Load data from API when view appears

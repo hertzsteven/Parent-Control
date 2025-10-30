@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Main Content View
 /// Main parental control view displaying child profile and controlled apps
-struct ContentView: View {
+struct DeviceAppsView: View {
     let device: Device
     var viewModel: ParentalControlViewModel
     
@@ -15,7 +15,7 @@ struct ContentView: View {
             
             VStack(spacing: 0) {
                 navigationBar
-                deviceHeaderView
+//                deviceHeaderView
                 appListSection
             }
         }
@@ -34,8 +34,28 @@ struct ContentView: View {
     @ViewBuilder
     private var navigationBar: some View {
         HStack {
-            Text(device.name)
-                .font(AppTheme.Typography.navigationTitle)
+//            Text(device.name)
+//                .font(AppTheme.Typography.navigationTitle)
+            
+            HStack(spacing: AppTheme.Spacing.md) {
+                // Device icon with colored ring
+                ZStack {
+                    Circle()
+                        .strokeBorder(device.color, lineWidth: 3)
+                        .frame(width: 60, height: 60)
+                    
+                    Image(systemName: device.iconName)
+                        .font(.system(size: 32))
+                        .foregroundColor(AppTheme.Colors.textPrimary)
+                }
+                
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                    Text(device.name)
+                        .font(AppTheme.Typography.childName)
+                        .foregroundColor(AppTheme.Colors.textPrimary)
+                    
+                }
+            }
             
             Spacer()
             
@@ -45,7 +65,9 @@ struct ContentView: View {
             }
         }
         .navigationBarStyle()
+        .padding(.bottom, AppTheme.Spacing.md)
     }
+
     
     /// Device header showing device icon and child profile
     @ViewBuilder
@@ -63,13 +85,10 @@ struct ContentView: View {
             }
             
             VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
-                Text(viewModel.childData.name)
+                Text(device.name)
                     .font(AppTheme.Typography.childName)
                     .foregroundColor(AppTheme.Colors.textPrimary)
-                
-                Text(device.name)
-                    .font(AppTheme.Typography.deviceInfo)
-                    .foregroundColor(AppTheme.Colors.textSecondary)
+
             }
             
             Spacer()
@@ -140,7 +159,7 @@ struct ContentView: View {
     let device = viewModel.devices.first ?? Device.sample
     
     return NavigationStack {
-        ContentView(device: device, viewModel: viewModel)
+        DeviceAppsView(device: device, viewModel: viewModel)
     }
 }
 
@@ -154,7 +173,7 @@ struct ContentView: View {
     )
     
     return NavigationStack {
-        ContentView(device: device, viewModel: viewModel)
+        DeviceAppsView(device: device, viewModel: viewModel)
     }
 }
 
@@ -169,6 +188,6 @@ struct ContentView: View {
     )
     
     return NavigationStack {
-        ContentView(device: device, viewModel: viewModel)
+        DeviceAppsView(device: device, viewModel: viewModel)
     }
 }
