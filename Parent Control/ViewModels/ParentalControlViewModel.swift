@@ -34,6 +34,9 @@ final class ParentalControlViewModel {
     /// Error message from last failed operation
     var errorMessage: String?
     
+    /// Flag to track if data has been loaded from API
+    var hasLoadedData: Bool = false
+    
     /// Network service for API calls
     private let networkService: NetworkService
     
@@ -345,6 +348,12 @@ final class ParentalControlViewModel {
     /// Fetches apps and devices, then updates the view model state
     /// Falls back to default data if network request fails
     func loadData() async {
+        // Skip if data already loaded
+        if hasLoadedData && !devices.isEmpty {
+            print("📦 Using cached data - skipping API reload")
+            return
+        }
+        
         isLoading = true
         errorMessage = nil
         
@@ -486,6 +495,9 @@ final class ParentalControlViewModel {
             // Clear any previous errors
             self.errorMessage = nil
             
+            // Set flag to prevent reloading
+            hasLoadedData = true
+            
             print("\n✅ Successfully loaded \(enrichedApps.count) apps and \(fetchedDevices.count) devices from API\n")
             
         } catch let error as NetworkError {
@@ -512,6 +524,12 @@ final class ParentalControlViewModel {
         Task {
             await loadData()
         }
+    }
+    
+    /// Refresh data from API (forces reload)
+    func refreshData() async {
+        hasLoadedData = false
+        await loadData()
     }
     
     /// Load default mock data

@@ -103,6 +103,9 @@ struct DeviceSelectionView: View {
                     .padding(.bottom, AppTheme.Spacing.lg)
                 }
             }
+            .refreshable {
+                await viewModel.refreshData()
+            }
         }
     }
     
