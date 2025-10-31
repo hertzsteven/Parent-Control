@@ -76,6 +76,21 @@ final class NetworkService {
         return response.devices
     }
     
+    /// Fetch class details from Zuludesk API
+    /// - Parameter classId: The UUID of the class to fetch
+    /// - Returns: ClassResponse with class details and students
+    /// - Throws: NetworkError if request fails
+    func fetchClass(classId: String) async throws -> ClassResponse {
+        let endpoint = "/classes/\(classId)"
+        let response: ClassResponse = try await request(
+            endpoint: endpoint,
+            method: "GET",
+            protocolVersion: "3",
+            additionalHeaders: ["Cookie": "hash=c683a60c07d2f6e4b1fd4e385d034954"]
+        )
+        return response
+    }
+    
     /// Set device owner
     /// - Parameters:
     ///   - deviceUDID: The UDID of the device

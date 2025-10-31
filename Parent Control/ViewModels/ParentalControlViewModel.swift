@@ -351,6 +351,22 @@ final class ParentalControlViewModel {
         print("\n🚀 Starting API data load...")
         
         do {
+            // Fetch class details first
+            print("\n🏫 Fetching class details...")
+            let classResponse = try await networkService.fetchClass(classId: configuration.classId)
+            let classDetails = classResponse.classDetails
+            
+            // Extract student IDs from class
+            let studentIds: Set<String> = Set(classDetails.students.map { String($0.id) })
+            
+            print("✅ Class fetched successfully: \"\(classDetails.name)\"")
+            print("   📊 Student count: \(classDetails.studentCount)")
+            print("   👥 Students in class:")
+            for student in classDetails.students {
+                print("      - ID: \(student.id) | Name: \(student.name)")
+            }
+            print("   🔑 Student IDs for filtering: \(studentIds.sorted())")
+            
             // Fetch apps from API
             print("\n📲 Fetching apps...")
             let appDTOs = try await networkService.fetchApps()
@@ -408,8 +424,25 @@ final class ParentalControlViewModel {
             print(String(repeating: "━", count: 60))
             
             // Convert to domain models using bundleId mapping
-            let fetchedDevices = deviceDTOs.toDevices(bundleIdMapping: bundleIdMapping)
-            print("\n✅ Devices fetched successfully: \(fetchedDevices.count)")
+            let allDevices = deviceDTOs.toDevices(bundleIdMapping: bundleIdMapping)
+            print("\n✅ All devices fetched: \(allDevices.count)")
+            
+            // Filter devices to only show those owned by students in the class
+            let fetchedDevices = allDevices.filter { device in
+                if let ownerId = device.ownerId {
+                    return studentIds.contains(ownerId)
+                }
+                return false  // Exclude devices with no owner
+            }
+            
+            print("\n🔍 DEVICE FILTERING:")
+            print("   📊 Total devices from API: \(allDevices.count)")
+            print("   ✅ Devices matching class students: \(fetchedDevices.count)")
+            print("   ❌ Devices filtered out: \(allDevices.count - fetchedDevices.count)")
+            print("\n   📱 Devices shown for class \"\(classDetails.name)\":")
+            for device in fetchedDevices {
+                print("      - \(device.name) (Owner ID: \(device.ownerId ?? "none"))")
+            }
             
             // Enrich AppItems with icon URLs from device apps
             let enrichedApps = fetchedApps.map { app in

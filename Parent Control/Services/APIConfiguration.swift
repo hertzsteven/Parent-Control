@@ -26,6 +26,9 @@ struct APIConfiguration {
     /// Teacher API token for app lock operations
     let teacherToken: String
     
+    /// Hardcoded class ID for testing (will be dynamic later)
+    let classId: String
+    
     // MARK: - Initialization
     
     init(
@@ -33,13 +36,15 @@ struct APIConfiguration {
         networkID: String = "65319076",
         apiKey: String = "MCSMD6VC7MCKUNN8MJ5CDA96R1HZBGAV",
         apiVersion: String = "1",
-        teacherToken: String = "1fac4ce4ddbe4d1c984432aedd02c59f"
+        teacherToken: String = "1fac4ce4ddbe4d1c984432aedd02c59f",
+        classId: String = "62743db3-2001-4568-8cbc-d415f4f3f939"
     ) {
         self.baseURL = baseURL
         self.networkID = networkID
         self.apiKey = apiKey
         self.apiVersion = apiVersion
         self.teacherToken = teacherToken
+        self.classId = classId
     }
     
     // MARK: - Computed Properties

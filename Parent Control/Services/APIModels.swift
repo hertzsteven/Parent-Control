@@ -180,3 +180,53 @@ struct APIErrorResponse: Codable {
     }
 }
 
+// MARK: - Class Response
+
+/// Response structure for class endpoint
+struct ClassResponse: Codable {
+    let code: Int
+    let classDetails: ClassDetails
+    
+    enum CodingKeys: String, CodingKey {
+        case code
+        case classDetails = "class"
+    }
+}
+
+/// Class details including students and teachers
+struct ClassDetails: Codable {
+    let uuid: String
+    let name: String
+    let description: String?
+    let studentCount: Int
+    let students: [StudentDTO]
+    let teacherCount: Int
+    let teachers: [TeacherDTO]
+    
+    enum CodingKeys: String, CodingKey {
+        case uuid, name, description, studentCount, students, teacherCount, teachers
+    }
+}
+
+/// Data Transfer Object for student from Zuludesk API
+struct StudentDTO: Codable {
+    let id: Int
+    let name: String
+    let email: String?
+    let username: String?
+    let firstName: String?
+    let lastName: String?
+    let photo: String?
+}
+
+/// Data Transfer Object for teacher from Zuludesk API
+struct TeacherDTO: Codable {
+    let id: Int
+    let name: String
+    let email: String?
+    let username: String?
+    let firstName: String?
+    let lastName: String?
+    let photo: String?
+}
+
