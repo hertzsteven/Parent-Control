@@ -15,10 +15,25 @@ struct Parent_ControlApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(authManager)
-                .sheet(isPresented: .constant(!authManager.isAuthenticated)) {
+                .sheet(isPresented: Binding(
+                    get: { !authManager.isAuthenticated || authManager.isVoluntaryLogout },
+                    set: { newValue in
+                        // If sheet is dismissed during voluntary logout, restore previous auth
+                        if !newValue && authManager.isVoluntaryLogout && !authManager.isAuthenticated {
+                            authManager.restorePreviousAuth()
+                        }
+                        // Don't manually set showAuthSheet - let the binding handle it
+                    }
+                )) {
                     AuthenticationView()
                         .environmentObject(authManager)
-                        .interactiveDismissDisabled()
+                        .interactiveDismissDisabled(!authManager.isVoluntaryLogout)
+                        .onDisappear {
+                            // If sheet disappears during voluntary logout and user didn't authenticate
+                            if authManager.isVoluntaryLogout && !authManager.isAuthenticated {
+                                authManager.restorePreviousAuth()
+                            }
+                        }
                 }
         }
     }
@@ -30,7 +45,10 @@ struct ContentView: View {
     @EnvironmentObject var authManager: AuthenticationManager
     
     var body: some View {
-        if authManager.isValidating {
+        // If voluntary logout, show nothing (sheet will appear immediately)
+        if authManager.isVoluntaryLogout {
+            Color.clear  // Transparent - sheet will cover it
+        } else if authManager.isValidating {
             // Show loading during token validation
             VStack(spacing: 20) {
                 ProgressView()
@@ -58,6 +76,10 @@ struct AuthenticationView: View {
     @State private var password: String = ""
     @State private var isAuthenticating = false
     @State private var errorMessage: String?
+    
+    private var showCancel: Bool {
+        authManager.isVoluntaryLogout
+    }
     
     var body: some View {
         NavigationStack {
@@ -141,6 +163,17 @@ struct AuthenticationView: View {
                 .padding(.bottom, 40)
             }
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                if showCancel {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        // Restore previous authentication state
+                        authManager.restorePreviousAuth()
+                    }
+                        .disabled(isAuthenticating)
+                    }
+                }
+            }
         }
     }
     
@@ -157,6 +190,8 @@ struct AuthenticationView: View {
             
             // Clear password for security
             password = ""
+            // Clear voluntary logout flag after successful authentication
+            authManager.isVoluntaryLogout = false
             
         } catch let error as NetworkError {
             errorMessage = error.localizedDescription

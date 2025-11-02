@@ -16,6 +16,11 @@ class AuthenticationManager: ObservableObject {
     @Published var isAuthenticated: Bool = false
     @Published var authenticatedUser: AuthenticatedUser?
     @Published var isValidating: Bool = false
+    @Published var isVoluntaryLogout: Bool = false
+    
+    // Store previous auth state for canceling voluntary logout
+    private var previousToken: String?
+    private var previousUser: AuthenticatedUser?
     
     // MARK: - Keychain Keys
     
@@ -92,12 +97,38 @@ class AuthenticationManager: ObservableObject {
     }
     
     /// Logout and clear stored credentials
-    func logout() {
+    /// - Parameter isVoluntary: True if user manually logged out (e.g., via switch user), false if forced logout
+    func logout(isVoluntary: Bool = false) {
+        if isVoluntary {
+            // Store current auth state for potential restore on cancel
+            previousToken = token
+            previousUser = authenticatedUser
+            isVoluntaryLogout = true  // Set this FIRST so sheet appears immediately
+        }
+        
         token = nil
         authenticatedUser = nil
         isAuthenticated = false
         isValidating = false
-        clearKeychain()
+        
+        if !isVoluntary {
+            isVoluntaryLogout = false
+            // Only clear Keychain for forced logout
+            clearKeychain()
+        }
+    }
+    
+    /// Restore previous authentication state (for canceling voluntary logout)
+    func restorePreviousAuth() {
+        if let previousToken = previousToken, let previousUser = previousUser {
+            token = previousToken
+            authenticatedUser = previousUser
+            isAuthenticated = true
+            isVoluntaryLogout = false
+            // Clear stored previous state
+            self.previousToken = nil
+            self.previousUser = nil
+        }
     }
     
     // MARK: - Keychain Methods

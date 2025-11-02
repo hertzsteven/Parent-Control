@@ -11,6 +11,7 @@ import SwiftUI
 struct DeviceSelectionView: View {
     @EnvironmentObject var authManager: AuthenticationManager
     @State private var viewModel: ParentalControlViewModel
+    @State private var showAccountMenu = false
     
     let columns = [
         GridItem(.flexible(), spacing: AppTheme.Spacing.lg),
@@ -22,38 +23,50 @@ struct DeviceSelectionView: View {
     }
     
     var body: some View {
-        NavigationStack {
-            ZStack {
-                AppTheme.Colors.background
-                    .ignoresSafeArea()
-                
-                // Show loading state while fetching data OR if data hasn't been loaded yet
-                if viewModel.isLoading || !viewModel.hasLoadedData {
-                    VStack(spacing: AppTheme.Spacing.lg) {
-                        ProgressView()
-                            .scaleEffect(1.5)
-                        Text("Loading devices...")
-                            .font(AppTheme.Typography.childName)
-                            .foregroundColor(AppTheme.Colors.textSecondary)
-                    }
-                } else {
-                    VStack(spacing: 0) {
-                        navigationBar
-                        deviceGridSection
+        // Only render if authenticated
+        if !authManager.isAuthenticated {
+            // Return empty view if not authenticated (shouldn't happen, but safety check)
+            EmptyView()
+        } else {
+            NavigationStack {
+                ZStack {
+                    AppTheme.Colors.background
+                        .ignoresSafeArea()
+                    
+                    // Show loading state while fetching data OR if data hasn't been loaded yet
+                    if viewModel.isLoading || !viewModel.hasLoadedData {
+                        VStack(spacing: AppTheme.Spacing.lg) {
+                            ProgressView()
+                                .scaleEffect(1.5)
+                            Text("Loading devices...")
+                                .font(AppTheme.Typography.childName)
+                                .foregroundColor(AppTheme.Colors.textSecondary)
+                        }
+                    } else {
+                        VStack(spacing: 0) {
+                            navigationBar
+                            deviceGridSection
+                        }
                     }
                 }
-            }
-            .navigationDestination(for: Device.self) { device in
-                DeviceAppsView(device: device, viewModel: viewModel)
-            }
-            .task {
-                // Set auth manager on view model
-                viewModel.authManager = authManager
-                
-                // Load data from API when view appears
-                await viewModel.loadData()
-            }
-            .alert("Error Loading Data", isPresented: .constant(viewModel.errorMessage != nil)) {
+                .navigationDestination(for: Device.self) { device in
+                    DeviceAppsView(device: device, viewModel: viewModel)
+                }
+                .task(id: authManager.isAuthenticated) {
+                    // Only load data if authenticated
+                    guard authManager.isAuthenticated && !authManager.isVoluntaryLogout else { 
+                        // Reset loading state if not authenticated
+                        viewModel.isLoading = false
+                        return 
+                    }
+                    
+                    // Set auth manager on view model
+                    viewModel.authManager = authManager
+                    
+                    // Load data from API when view appears
+                    await viewModel.loadData()
+                }
+                .alert("Error Loading Data", isPresented: .constant(viewModel.errorMessage != nil)) {
                 Button("OK") {
                     viewModel.errorMessage = nil
                 }
@@ -61,6 +74,17 @@ struct DeviceSelectionView: View {
                 if let error = viewModel.errorMessage {
                     Text(error)
                 }
+            }
+            .confirmationDialog("Account", isPresented: $showAccountMenu) {
+                Button("Switch User") {
+                    authManager.logout(isVoluntary: true)
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                if let user = authManager.authenticatedUser {
+                    Text("Logged in as \(user.name)")
+                }
+            }
             }
         }
     }
@@ -76,7 +100,7 @@ struct DeviceSelectionView: View {
             
             Spacer()
             
-            Button(action: { /* TODO: Add menu functionality */ }) {
+            Button(action: { showAccountMenu = true }) {
                 Image(systemName: "ellipsis")
                     .font(AppTheme.Typography.navigationTitle)
             }
