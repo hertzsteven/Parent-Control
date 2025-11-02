@@ -49,21 +49,15 @@ struct ContentView: View {
         if authManager.isVoluntaryLogout {
             Color.clear  // Transparent - sheet will cover it
         } else if authManager.isValidating {
-            // Show loading during token validation
-            VStack(spacing: 20) {
-                ProgressView()
-                    .scaleEffect(1.5)
-                Text("Validating credentials...")
-                    .font(.headline)
-                    .foregroundColor(.secondary)
-            }
+            // Show animated loading during token validation
+            LoadingView(message: "Validating credentials...")
         } else if authManager.isAuthenticated {
             DeviceSelectionView()
             // Uncomment below for testing API directly
             // TestingView()
         } else {
             // Placeholder while authentication sheet is shown
-            ProgressView("Authenticating...")
+            LoadingView(message: "Authenticating...")
         }
     }
 }

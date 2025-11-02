@@ -35,13 +35,7 @@ struct DeviceSelectionView: View {
                     
                     // Show loading state while fetching data OR if data hasn't been loaded yet
                     if viewModel.isLoading || !viewModel.hasLoadedData {
-                        VStack(spacing: AppTheme.Spacing.lg) {
-                            ProgressView()
-                                .scaleEffect(1.5)
-                            Text("Loading devices...")
-                                .font(AppTheme.Typography.childName)
-                                .foregroundColor(AppTheme.Colors.textSecondary)
-                        }
+                        LoadingView(message: "Loading devices...")
                     } else {
                         VStack(spacing: 0) {
                             navigationBar
