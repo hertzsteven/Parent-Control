@@ -21,6 +21,9 @@ struct TestingView: View {
     @State private var teacherGroupsResult: String?
     @State private var isLoadingTeacherGroups = false
     @State private var teacherGroupsList: [TeacherGroup] = []
+    @State private var combinedResult: String?
+    @State private var isLoadingCombined = false
+    @State private var matchedGroupsAndClasses: [(group: TeacherGroup, class: ClassListItem?)] = []
     
     var body: some View {
         NavigationStack {
@@ -157,6 +160,27 @@ struct TestingView: View {
                         .cornerRadius(12)
                 }
                 .disabled(isLoadingTeacherGroups)
+                .padding(.horizontal)
+                
+                // Fetch Combined Groups & Classes button
+                Button {
+                    Task {
+                        isLoadingCombined = true
+                        combinedResult = nil
+                        matchedGroupsAndClasses = []
+                        await fetchCombinedGroupsAndClasses()
+                        isLoadingCombined = false
+                    }
+                } label: {
+                    Label("Fetch Groups + Classes", systemImage: "link.circle.fill")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.indigo)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                }
+                .disabled(isLoadingCombined)
                 .padding(.horizontal)
                 
                 // App Lock result display
@@ -391,6 +415,118 @@ struct TestingView: View {
                             .padding(.horizontal)
                         }
                         .frame(maxHeight: 400)
+                    }
+                }
+                
+                // Combined result display
+                if let combinedResult = combinedResult {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label(combinedResult.contains("✅") ? "Success" : "Result", 
+                              systemImage: combinedResult.contains("✅") ? "checkmark.circle.fill" : "info.circle.fill")
+                            .font(.headline)
+                            .foregroundColor(combinedResult.contains("✅") ? .green : .blue)
+                        Text(combinedResult)
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                    .background((combinedResult.contains("✅") ? Color.green : Color.blue).opacity(0.1))
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+                }
+                
+                // Loading indicator for combined
+                if isLoadingCombined {
+                    ProgressView("Fetching and Matching Data...")
+                        .padding()
+                }
+                
+                // Matched groups and classes display
+                if !matchedGroupsAndClasses.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("🔗 Matched Groups & Classes (\(matchedGroupsAndClasses.count))")
+                            .font(.headline)
+                            .padding(.horizontal)
+                        
+                        ScrollView {
+                            LazyVStack(spacing: 12) {
+                                ForEach(matchedGroupsAndClasses.indices, id: \.self) { index in
+                                    let item = matchedGroupsAndClasses[index]
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        // Group information
+                                        HStack {
+                                            Image(systemName: "person.3.sequence.fill")
+                                                .foregroundColor(.indigo)
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text("Group: \(item.group.name)")
+                                                    .font(.subheadline)
+                                                    .fontWeight(.semibold)
+                                                Text("ID: \(item.group.id)")
+                                                    .font(.caption2)
+                                                    .foregroundColor(.gray)
+                                            }
+                                        }
+                                        
+                                        Divider()
+                                        
+                                        // Matched class information
+                                        if let matchedClass = item.class {
+                                            HStack {
+                                                Image(systemName: "checkmark.circle.fill")
+                                                    .foregroundColor(.green)
+                                                VStack(alignment: .leading, spacing: 2) {
+                                                    Text("Matched Class: \(matchedClass.name)")
+                                                        .font(.subheadline)
+                                                        .fontWeight(.medium)
+                                                        .foregroundColor(.green)
+                                                    Text("UUID: \(matchedClass.uuid)")
+                                                        .font(.caption2)
+                                                        .foregroundColor(.gray)
+                                                        .lineLimit(1)
+                                                }
+                                            }
+                                            
+                                            HStack(spacing: 16) {
+                                                HStack(spacing: 4) {
+                                                    Image(systemName: "person.fill")
+                                                        .font(.caption2)
+                                                    Text("\(matchedClass.studentCount) students")
+                                                        .font(.caption)
+                                                }
+                                                .foregroundColor(.blue)
+                                                
+                                                HStack(spacing: 4) {
+                                                    Image(systemName: "person.badge.key.fill")
+                                                        .font(.caption2)
+                                                    Text("\(matchedClass.teacherCount) teachers")
+                                                        .font(.caption)
+                                                }
+                                                .foregroundColor(.purple)
+                                            }
+                                            .padding(.top, 4)
+                                        } else {
+                                            HStack {
+                                                Image(systemName: "xmark.circle.fill")
+                                                    .foregroundColor(.orange)
+                                                Text("No matching class found")
+                                                    .font(.caption)
+                                                    .foregroundColor(.orange)
+                                            }
+                                        }
+                                    }
+                                    .padding(12)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(Color.indigo.opacity(0.05))
+                                    .cornerRadius(8)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(Color.indigo.opacity(0.3), lineWidth: 1)
+                                    )
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
+                        .frame(maxHeight: 500)
                     }
                 }
                 
@@ -816,6 +952,85 @@ struct TestingView: View {
             print("⚠️ Unknown Error: \(error.localizedDescription)")
             print(String(repeating: "=", count: 80) + "\n")
             teacherGroupsResult = "❌ Failed: \(error.localizedDescription)"
+        }
+    }
+    
+    // Fetch combined groups and classes with matching
+    private func fetchCombinedGroupsAndClasses() async {
+        print("\n" + String(repeating: "=", count: 80))
+        print("🔗 FETCHING COMBINED GROUPS & CLASSES")
+        print(String(repeating: "=", count: 80))
+        
+        let networkService = NetworkService()
+        
+        do {
+            // Step 1: Fetch teacher groups
+            print("\n📍 Step 1: Fetching Teacher Groups...")
+            let token = "c49e7499b1604582965b0c97affb522b"
+            let groupsResponse = try await networkService.fetchTeacherGroups(token: token)
+            print("✅ Fetched \(groupsResponse.results.count) teacher groups")
+            
+            // Step 2: Fetch classes
+            print("\n📍 Step 2: Fetching Classes...")
+            let classesResponse = try await networkService.fetchClasses()
+            print("✅ Fetched \(classesResponse.classes.count) classes")
+            
+            // Step 3: Match groups with classes
+            print("\n📍 Step 3: Matching Groups with Classes...")
+            print(String(repeating: "-", count: 80))
+            
+            var matched: [(group: TeacherGroup, class: ClassListItem?)] = []
+            var matchCount = 0
+            
+            for group in groupsResponse.results {
+                // Try to find a matching class by name (case-insensitive)
+                let matchedClass = classesResponse.classes.first { classItem in
+                    classItem.name.lowercased() == group.name.lowercased()
+                }
+                
+                matched.append((group: group, class: matchedClass))
+                
+                if let matchedClass = matchedClass {
+                    matchCount += 1
+                    print("\n✓ MATCH FOUND:")
+                    print("  Group: \(group.name) (ID: \(group.id))")
+                    print("  Class: \(matchedClass.name) (UUID: \(matchedClass.uuid))")
+                    print("  Students: \(matchedClass.studentCount), Teachers: \(matchedClass.teacherCount)")
+                } else {
+                    print("\n✗ NO MATCH:")
+                    print("  Group: \(group.name) (ID: \(group.id))")
+                }
+            }
+            
+            print("\n" + String(repeating: "=", count: 80))
+            print("📊 SUMMARY:")
+            print("   Total Groups: \(groupsResponse.results.count)")
+            print("   Total Classes: \(classesResponse.classes.count)")
+            print("   Matches Found: \(matchCount)")
+            print("   Unmatched: \(groupsResponse.results.count - matchCount)")
+            print(String(repeating: "=", count: 80) + "\n")
+            
+            // Update UI state
+            matchedGroupsAndClasses = matched
+            combinedResult = """
+            ✅ SUCCESS!
+            
+            Fetched \(groupsResponse.results.count) groups
+            Fetched \(classesResponse.classes.count) classes
+            Found \(matchCount) matches
+            """
+            
+        } catch let error as NetworkError {
+            print("\n❌ Failed to Fetch Combined Data!")
+            print("⚠️ Error: \(error.localizedDescription)")
+            print(String(repeating: "=", count: 80) + "\n")
+            combinedResult = "❌ Failed: \(error.localizedDescription)"
+            
+        } catch {
+            print("\n❌ Failed to Fetch Combined Data!")
+            print("⚠️ Unknown Error: \(error.localizedDescription)")
+            print(String(repeating: "=", count: 80) + "\n")
+            combinedResult = "❌ Failed: \(error.localizedDescription)"
         }
     }
 }
