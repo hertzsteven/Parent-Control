@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct TestingView: View {
+    @EnvironmentObject var authManager: AuthenticationManager
     @State private var viewModel = ParentalControlViewModel()
     @State private var showResults = false
     @State private var firstDeviceApps: [(name: String, bundleId: String, vendor: String, version: String, iconURL: String)] = []
@@ -24,6 +25,11 @@ struct TestingView: View {
     @State private var combinedResult: String?
     @State private var isLoadingCombined = false
     @State private var matchedGroupsAndClasses: [(group: TeacherGroup, class: ClassListItem?)] = []
+    @State private var authResult: String?
+    @State private var isAuthenticating = false
+    @State private var showAuthPrompt = false
+    @State private var teacherUsername: String = ""
+    @State private var teacherPassword: String = ""
     
     var body: some View {
         NavigationStack {
@@ -34,6 +40,37 @@ struct TestingView: View {
                 
                 Text("Temporary screen for exploring Zuludesk API")
                     .foregroundColor(.secondary)
+                
+                // User info and logout
+                if let user = authManager.authenticatedUser {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Logged in as: \(user.name)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            if let token = authManager.token {
+                                Text("Token: \(token.prefix(8))...")
+                                    .font(.caption2)
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                        
+                        Spacer()
+                        
+                        Button {
+                            authManager.logout()
+                        } label: {
+                            Label("Logout", systemImage: "rectangle.portrait.and.arrow.right")
+                                .font(.caption)
+                                .foregroundColor(.red)
+                        }
+                    }
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+                }
                 
                 Divider()
                     .padding()
@@ -182,6 +219,89 @@ struct TestingView: View {
                 }
                 .disabled(isLoadingCombined)
                 .padding(.horizontal)
+                
+                // Teacher Authentication button
+                Button {
+                    showAuthPrompt = true
+                } label: {
+                    Label("Authenticate Teacher", systemImage: "person.badge.key.fill")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.pink)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                }
+                .disabled(isAuthenticating)
+                .padding(.horizontal)
+                .sheet(isPresented: $showAuthPrompt) {
+                    NavigationStack {
+                        VStack(spacing: 20) {
+                            Text("Enter Teacher Credentials")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .padding(.top)
+                            
+                            VStack(spacing: 16) {
+                                // Username field
+                                HStack {
+                                    Image(systemName: "person")
+                                        .foregroundColor(.gray)
+                                        .frame(width: 30)
+                                    TextField("Username", text: $teacherUsername)
+                                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                                        .autocapitalization(.none)
+                                        .autocorrectionDisabled()
+                                }
+                                .padding(.horizontal)
+                                
+                                // Password field
+                                HStack {
+                                    Image(systemName: "lock")
+                                        .foregroundColor(.gray)
+                                        .frame(width: 30)
+                                    SecureField("Password", text: $teacherPassword)
+                                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                                }
+                                .padding(.horizontal)
+                            }
+                            .padding(.vertical)
+                            
+                            Spacer()
+                            
+                            // Authenticate button
+                            Button {
+                                showAuthPrompt = false
+                                Task {
+                                    isAuthenticating = true
+                                    authResult = nil
+                                    await testTeacherAuth()
+                                    isAuthenticating = false
+                                }
+                            } label: {
+                                Text("Authenticate")
+                                    .font(.headline)
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(teacherUsername.isEmpty || teacherPassword.isEmpty ? Color.gray : Color.pink)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(12)
+                            }
+                            .disabled(teacherUsername.isEmpty || teacherPassword.isEmpty)
+                            .padding(.horizontal)
+                            .padding(.bottom)
+                        }
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarLeading) {
+                                Button("Cancel") {
+                                    showAuthPrompt = false
+                                }
+                            }
+                        }
+                    }
+                    .presentationDetents([.medium, .large])
+                }
                 
                 // App Lock result display
                 if let appLockResult = appLockResult {
@@ -438,6 +558,29 @@ struct TestingView: View {
                 // Loading indicator for combined
                 if isLoadingCombined {
                     ProgressView("Fetching and Matching Data...")
+                        .padding()
+                }
+                
+                // Teacher Authentication result display
+                if let authResult = authResult {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label(authResult.contains("✅") ? "Success" : "Result", 
+                              systemImage: authResult.contains("✅") ? "checkmark.circle.fill" : "info.circle.fill")
+                            .font(.headline)
+                            .foregroundColor(authResult.contains("✅") ? .green : .blue)
+                        Text(authResult)
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                    .background((authResult.contains("✅") ? Color.green : Color.blue).opacity(0.1))
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+                }
+                
+                // Loading indicator for authentication
+                if isAuthenticating {
+                    ProgressView("Authenticating Teacher...")
                         .padding()
                 }
                 
@@ -743,7 +886,10 @@ struct TestingView: View {
             let userId = "143"
             let bundleId = "com.thup.MonkeyMath"
             let clearAfter = 60 // seconds
-            let token = "1fac4ce4ddbe4d1c984432aedd02c59f"
+            guard let token = authManager.token else {
+                appLockResult = "❌ No authentication token available"
+                return
+            }
             
             // STEP 1: Set Device Owner
             print("\n📍 STEP 1: Setting Device Owner")
@@ -810,7 +956,10 @@ struct TestingView: View {
         
         do {
             let studentId = "143"
-            let token = "1fac4ce4ddbe4d1c984432aedd02c59f"
+            guard let token = authManager.token else {
+                unlockResult = "❌ No authentication token available"
+                return
+            }
             
             print("👤 Student ID: \(studentId)")
             print("🔑 Token: \(token)")
@@ -905,7 +1054,10 @@ struct TestingView: View {
         let networkService = NetworkService()
         
         do {
-            let token = "c49e7499b1604582965b0c97affb522b"
+            guard let token = authManager.token else {
+                teacherGroupsResult = "❌ No authentication token available"
+                return
+            }
             print("🔑 Token: \(token)")
             
             let response = try await networkService.fetchTeacherGroups(token: token)
@@ -964,9 +1116,13 @@ struct TestingView: View {
         let networkService = NetworkService()
         
         do {
+            guard let token = authManager.token else {
+                combinedResult = "❌ No authentication token available"
+                return
+            }
+            
             // Step 1: Fetch teacher groups
             print("\n📍 Step 1: Fetching Teacher Groups...")
-            let token = "c49e7499b1604582965b0c97affb522b"
             let groupsResponse = try await networkService.fetchTeacherGroups(token: token)
             print("✅ Fetched \(groupsResponse.results.count) teacher groups")
             
@@ -1033,9 +1189,72 @@ struct TestingView: View {
             combinedResult = "❌ Failed: \(error.localizedDescription)"
         }
     }
+    
+    // Test teacher authentication API call
+    private func testTeacherAuth() async {
+        print("\n" + String(repeating: "=", count: 80))
+        print("👨‍🏫 TESTING TEACHER AUTHENTICATION")
+        print(String(repeating: "=", count: 80))
+        
+        let networkService = NetworkService()
+        
+        do {
+            // Use hardcoded company ID and values from input fields
+            let company = "2001128"
+            let username = teacherUsername
+            let password = teacherPassword
+            
+            print("\n🔧 Company: \(company)")
+            print("👤 Username: \(username)")
+            
+            let response = try await networkService.authenticateTeacher(
+                company: company,
+                username: username,
+                password: password
+            )
+            
+            print("\n✅ Authentication Successful!")
+            print(String(repeating: "-", count: 80))
+            print("📊 Response Code: \(response.code)")
+            print("🔑 Token: \(response.token)")
+            print("🎯 Feature: \(response.feature)")
+            print("\n👤 Authenticated User:")
+            print("   ID: \(response.authenticatedAs.id)")
+            print("   Company ID: \(response.authenticatedAs.companyId)")
+            print("   Username: \(response.authenticatedAs.username)")
+            print("   Name: \(response.authenticatedAs.name)")
+            print("   First Name: \(response.authenticatedAs.firstName)")
+            print("   Last Name: \(response.authenticatedAs.lastName)")
+            print(String(repeating: "=", count: 80) + "\n")
+            
+            authResult = """
+            ✅ SUCCESS!
+            
+            Token: \(response.token)
+            
+            Authenticated as: \(response.authenticatedAs.name)
+            Username: \(response.authenticatedAs.username)
+            User ID: \(response.authenticatedAs.id)
+            Feature: \(response.feature)
+            """
+            
+        } catch let error as NetworkError {
+            print("\n❌ Authentication Failed!")
+            print("⚠️ Error: \(error.localizedDescription)")
+            print(String(repeating: "=", count: 80) + "\n")
+            authResult = "❌ Failed: \(error.localizedDescription)"
+            
+        } catch {
+            print("\n❌ Authentication Failed!")
+            print("⚠️ Unknown Error: \(error.localizedDescription)")
+            print(String(repeating: "=", count: 80) + "\n")
+            authResult = "❌ Failed: \(error.localizedDescription)"
+        }
+    }
 }
 
 #Preview {
     TestingView()
+        .environmentObject(AuthenticationManager())
 }
 

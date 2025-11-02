@@ -46,6 +46,9 @@ final class ParentalControlViewModel {
     /// Raw device DTOs with app info (for debugging/display)
     var deviceDTOs: [DeviceDTO] = []
     
+    /// Authentication manager for accessing current token
+    var authManager: AuthenticationManager?
+    
     // MARK: - Initialization
     
     init(
@@ -53,10 +56,12 @@ final class ParentalControlViewModel {
         appItems: [AppItem]? = nil,
         devices: [Device]? = nil,
         networkService: NetworkService = NetworkService(),
-        configuration: APIConfiguration = .default
+        configuration: APIConfiguration = .default,
+        authManager: AuthenticationManager? = nil
     ) {
         self.networkService = networkService
         self.configuration = configuration
+        self.authManager = authManager
         // Store app items in local variable first
         let initialAppItems = appItems ?? Self.defaultAppItems
         
@@ -230,16 +235,25 @@ final class ParentalControlViewModel {
         let clearAfter = 60 // seconds
         
         do {
+            // Get token from AuthenticationManager
+            guard let token = authManager?.token else {
+                let errorMessage = "No authentication token available. Please log in."
+                print("❌ Error: \(errorMessage)")
+                print(String(repeating: "=", count: 80) + "\n")
+                return .failure(NSError(domain: "ParentalControl", code: -3,
+                                      userInfo: [NSLocalizedDescriptionKey: errorMessage]))
+            }
+            
             // STEP 1: Unlock Device (clear any existing app lock)
             print("\n📍 STEP 1: Unlocking Device")
             print(String(repeating: "-", count: 80))
             print("🔓 Clearing any existing app locks...")
             print("👤 Student ID: \(userId)")
-            print("🔑 Token: \(configuration.teacherToken)")
+            print("🔑 Token: \(token)")
             
             let unlockResponse = try await networkService.stopAppLock(
                 studentId: userId,
-                token: configuration.teacherToken
+                token: token
             )
             
             print("✅ Device Unlocked Successfully!")
@@ -253,13 +267,13 @@ final class ParentalControlViewModel {
             print("📱 Bundle ID: \(bundleId)")
             print("⏱️ Clear After: \(clearAfter) seconds")
             print("👨‍🎓 Student IDs: \(userId)")
-            print("🔑 Token: \(configuration.teacherToken)")
+            print("🔑 Token: \(token)")
             
             let lockResponse = try await networkService.applyAppLock(
                 bundleId: bundleId,
                 clearAfterSeconds: clearAfter,
                 studentIds: [userId],
-                token: configuration.teacherToken
+                token: token
             )
             
             print("\n✅ App Lock Applied Successfully!")
@@ -302,16 +316,25 @@ final class ParentalControlViewModel {
                                   userInfo: [NSLocalizedDescriptionKey: errorMessage]))
         }
         
+        // Get token from AuthenticationManager
+        guard let token = authManager?.token else {
+            let errorMessage = "No authentication token available. Please log in."
+            print("❌ Error: \(errorMessage)")
+            print(String(repeating: "=", count: 80) + "\n")
+            return .failure(NSError(domain: "ParentalControl", code: -3,
+                                  userInfo: [NSLocalizedDescriptionKey: errorMessage]))
+        }
+        
         do {
             print("\n📍 Removing App Locks")
             print(String(repeating: "-", count: 80))
             print("🔧 Device: \(device.name)")
             print("👤 Student ID: \(userId)")
-            print("🔑 Token: \(configuration.teacherToken)")
+            print("🔑 Token: \(token)")
             
             let unlockResponse = try await networkService.stopAppLock(
                 studentId: userId,
-                token: configuration.teacherToken
+                token: token
             )
             
             print("\n✅ Device Unlocked Successfully!")
@@ -360,9 +383,14 @@ final class ParentalControlViewModel {
         print("\n🚀 Starting API data load...")
         
         do {
+            // Get token from AuthenticationManager
+            guard let token = authManager?.token else {
+                throw NSError(domain: "ParentalControl", code: -3,
+                              userInfo: [NSLocalizedDescriptionKey: "No authentication token available. Please log in."])
+            }
+            
             // STEP 1: Fetch teacher groups to determine which class to use
             print("\n👥 Fetching teacher groups...")
-            let token = configuration.teacherToken
             let groupsResponse = try await networkService.fetchTeacherGroups(token: token)
             print("✅ Fetched \(groupsResponse.results.count) teacher group(s)")
             

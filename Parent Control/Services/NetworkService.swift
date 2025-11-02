@@ -217,6 +217,40 @@ final class NetworkService {
         return response
     }
     
+    /// Authenticate teacher and retrieve API token
+    /// - Parameters:
+    ///   - company: Company ID (e.g., "2001128")
+    ///   - username: Teacher username (e.g., "gmteacher")
+    ///   - password: Teacher password
+    /// - Returns: TeacherAuthResponse containing token and authenticated user info
+    /// - Throws: NetworkError if request fails
+    func authenticateTeacher(
+        company: String,
+        username: String,
+        password: String
+    ) async throws -> TeacherAuthResponse {
+        let endpoint = "/teacher/authenticate"
+        
+        let requestBody = TeacherAuthRequest(
+            company: company,
+            username: username,
+            password: password
+        )
+        
+        let bodyData = try JSONEncoder().encode(requestBody)
+        
+        // Use custom request method with protocol version 2 and cookie
+        let response: TeacherAuthResponse = try await request(
+            endpoint: endpoint,
+            method: "POST",
+            body: bodyData,
+            protocolVersion: "2",
+            additionalHeaders: ["Cookie": "hash=c683a60c07d2f6e4b1fd4e385d034954"]
+        )
+        
+        return response
+    }
+    
     // MARK: - Private Methods
     
     /// Generic request method for API calls

@@ -275,3 +275,30 @@ struct TeacherGroup: Codable {
     }
 }
 
+// MARK: - Teacher Authentication Request/Response
+
+/// Request body for teacher authentication
+struct TeacherAuthRequest: Codable {
+    let company: String
+    let username: String
+    let password: String
+}
+
+/// Authenticated user information from teacher authentication
+struct AuthenticatedUser: Codable {
+    let id: Int
+    let companyId: Int
+    let username: String
+    let firstName: String
+    let lastName: String
+    let name: String
+}
+
+/// Response from teacher authentication endpoint
+struct TeacherAuthResponse: Codable {
+    let code: Int
+    let token: String
+    let feature: String
+    let authenticatedAs: AuthenticatedUser
+}
+

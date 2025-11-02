@@ -9,12 +9,17 @@ import SwiftUI
 
 /// View for selecting which device to manage parental controls for
 struct DeviceSelectionView: View {
-    @State private var viewModel = ParentalControlViewModel()
+    @EnvironmentObject var authManager: AuthenticationManager
+    @State private var viewModel: ParentalControlViewModel
     
     let columns = [
         GridItem(.flexible(), spacing: AppTheme.Spacing.lg),
         GridItem(.flexible(), spacing: AppTheme.Spacing.lg)
     ]
+    
+    init() {
+        _viewModel = State(initialValue: ParentalControlViewModel())
+    }
     
     var body: some View {
         NavigationStack {
@@ -42,6 +47,9 @@ struct DeviceSelectionView: View {
                 DeviceAppsView(device: device, viewModel: viewModel)
             }
             .task {
+                // Set auth manager on view model
+                viewModel.authManager = authManager
+                
                 // Load data from API when view appears
                 await viewModel.loadData()
             }
@@ -136,12 +144,11 @@ struct DeviceSelectionView: View {
 // MARK: - Previews
 #Preview("Default") {
     DeviceSelectionView()
+        .environmentObject(AuthenticationManager())
 }
 
 #Preview("Empty State") {
-    let viewModel = ParentalControlViewModel()
-    viewModel.devices = []
-    
-    return DeviceSelectionView()
+    DeviceSelectionView()
+        .environmentObject(AuthenticationManager())
 }
 
