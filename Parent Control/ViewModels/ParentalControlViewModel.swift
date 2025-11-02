@@ -360,9 +360,38 @@ final class ParentalControlViewModel {
         print("\n🚀 Starting API data load...")
         
         do {
-            // Fetch class details first
-            print("\n🏫 Fetching class details...")
-            let classResponse = try await networkService.fetchClass(classId: configuration.classId)
+            // STEP 1: Fetch teacher groups to determine which class to use
+            print("\n👥 Fetching teacher groups...")
+            let token = configuration.teacherToken
+            let groupsResponse = try await networkService.fetchTeacherGroups(token: token)
+            print("✅ Fetched \(groupsResponse.results.count) teacher group(s)")
+            
+            // STEP 2: Fetch all classes
+            print("\n📚 Fetching classes list...")
+            let classesResponse = try await networkService.fetchClasses()
+            print("✅ Fetched \(classesResponse.classes.count) class(es)")
+            
+            // STEP 3: Match teacher group with class by ID
+            print("\n🔗 Matching teacher group with class...")
+            guard let teacherGroup = groupsResponse.results.first else {
+                throw NSError(domain: "ParentalControl", code: -3, 
+                              userInfo: [NSLocalizedDescriptionKey: "No teacher groups found"])
+            }
+            
+            guard let matchedClass = classesResponse.classes.first(where: { $0.userGroupId == teacherGroup.id }) else {
+                throw NSError(domain: "ParentalControl", code: -4,
+                              userInfo: [NSLocalizedDescriptionKey: "No class found matching teacher group ID \(teacherGroup.id)"])
+            }
+            
+            print("✅ Matched class: \(matchedClass.name) (UUID: \(matchedClass.uuid))")
+            print("   Teacher Group: \(teacherGroup.name) (ID: \(teacherGroup.id))")
+            print("\n" + String(repeating: "━", count: 80))
+            print("🎯 USING CLASS UUID: \(matchedClass.uuid)")
+            print(String(repeating: "━", count: 80))
+            
+            // STEP 4: Fetch detailed class information using the matched UUID
+            print("\n🏫 Fetching class details for: \(matchedClass.name)...")
+            let classResponse = try await networkService.fetchClass(classId: matchedClass.uuid)
             let classDetails = classResponse.classDetails
             
             // Extract student IDs from class

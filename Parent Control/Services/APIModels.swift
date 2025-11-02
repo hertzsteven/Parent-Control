@@ -244,9 +244,10 @@ struct ClassListItem: Codable {
     let description: String?
     let studentCount: Int
     let teacherCount: Int
+    let userGroupId: Int?
     
     enum CodingKeys: String, CodingKey {
-        case uuid, name, description, studentCount, teacherCount
+        case uuid, name, description, studentCount, teacherCount, userGroupId
     }
 }
 

@@ -36,7 +36,7 @@ struct APIConfiguration {
         networkID: String = "65319076",
         apiKey: String = "MCSMD6VC7MCKUNN8MJ5CDA96R1HZBGAV",
         apiVersion: String = "1",
-        teacherToken: String = "1fac4ce4ddbe4d1c984432aedd02c59f",
+        teacherToken: String = "747a92ebe5cc4c458043d087d115c282",
         classId: String = "62743db3-2001-4568-8cbc-d415f4f3f939"
     ) {
         self.baseURL = baseURL
