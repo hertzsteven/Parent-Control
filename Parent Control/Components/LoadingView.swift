@@ -19,7 +19,15 @@ struct LoadingView: View {
             
             VStack(spacing: 24) {
                 // Animated app icon
-                Image("appIconImage")
+                HStack {
+                    Spacer()
+                    Image("appIconImage")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 104, height: 104)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    Spacer()
+                }
 //                Image(systemName: "lock.shield.fill")
                     .font(.system(size: 80))
                     .foregroundColor(.pink)
