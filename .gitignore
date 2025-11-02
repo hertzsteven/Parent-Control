@@ -1,0 +1,56 @@
+# Security - Credentials and Secrets
+Config.plist
+Secrets.plist
+.env
+*.secret
+
+# Xcode
+xcuserdata/
+*.xcuserstate
+*.xcuserdatad/
+project.xcworkspace/xcuserdata/
+
+# Build files
+build/
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# CocoaPods
+Pods/
+*.xcworkspace
+!default.xcworkspace
+
+# Swift Package Manager
+.swiftpm/
+.build/
+Package.resolved
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Thumbnails
+Thumbs.db
+
+# Archives and temporary files
+*.swp
+*.bak
+*.tmp
+*~
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Code coverage
+*.gcda
+*.gcno
+

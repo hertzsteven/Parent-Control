@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- 
+	API Configuration Template
+	
+	SETUP INSTRUCTIONS:
+	1. Copy this file and rename it to "Config.plist"
+	2. Replace all placeholder values with your actual credentials
+	3. NEVER commit the real Config.plist to version control
+	
+	WHERE TO FIND YOUR CREDENTIALS:
+	- API_BASE_URL: Your Jamf School/Zuludesk domain (e.g., "yourschool.jamfcloud.com/api")
+	- NETWORK_ID: Found in Zuludesk under Devices > Enroll Device(s)
+	- API_KEY: Generate from Organization > Settings > API
+	- TEACHER_TOKEN: From your teacher account API settings
+	- CLASS_ID: The UUID of the class you want to manage
+	-->
+	
+	<key>API_BASE_URL</key>
+	<string>YOUR_DOMAIN.jamfcloud.com/api</string>
+	
+	<key>NETWORK_ID</key>
+	<string>YOUR_NETWORK_ID_HERE</string>
+	
+	<key>API_KEY</key>
+	<string>YOUR_API_KEY_HERE</string>
+	
+	<key>API_VERSION</key>
+	<string>1</string>
+	
+	<key>TEACHER_TOKEN</key>
+	<string>YOUR_TEACHER_TOKEN_HERE</string>
+	
+	<key>CLASS_ID</key>
+	<string>YOUR_CLASS_ID_UUID_HERE</string>
+</dict>
+</plist>
+

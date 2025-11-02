@@ -9,10 +9,11 @@ All network integration components have been successfully implemented using Swif
 ### Core Services (`Parent Control/Services/`)
 
 1. **APIConfiguration.swift**
-   - Stores API credentials (Network ID, API Key)
+   - Loads API credentials from Config.plist (secure, not in version control)
    - Configurable base URL
    - Automatic HTTP Basic Auth header generation
    - Supports multiple environments (dev, staging, production)
+   - Debug warnings for missing configuration
 
 2. **APIModels.swift**
    - `AppsResponse` & `AppDTO` - API response structures for apps
@@ -34,15 +35,29 @@ All network integration components have been successfully implemented using Swif
    - Automatic device type recognition (iPad, iPhone, Mac, etc.)
    - Color assignment for devices
 
+### Configuration & Security
+
+5. **Config.plist.template**
+   - Template file with placeholder credentials
+   - Safe to commit to version control
+   - Instructions for setup included as XML comments
+   - Easy distribution and onboarding
+
+6. **Config.plist** (gitignored)
+   - Actual credentials (not committed to version control)
+   - Loaded at runtime by APIConfiguration
+   - User must create from template
+   - Listed in `.gitignore`
+
 ### Documentation
 
-5. **README.md** (in Services folder)
+7. **README.md** (in Services folder)
    - Complete usage guide
    - Setup instructions
    - API endpoint documentation
    - Troubleshooting guide
 
-6. **UsageExample.swift**
+8. **UsageExample.swift**
    - 8 real-world usage examples
    - Pull-to-refresh pattern
    - Error handling with retry
@@ -62,19 +77,53 @@ Added network capabilities:
 - ✅ Automatic fallback to default mock data on errors
 - ✅ Maintained backward compatibility
 
-## 🚀 Quick Start
+## 🔐 Security Setup (IMPORTANT - Do This First!)
 
-### 1. Configure Your Credentials
+⚠️ **NEVER commit actual credentials to version control!**
 
-Open `APIConfiguration.swift` and replace placeholder values:
+### 1. Create Your Config.plist File
 
-```swift
-let config = APIConfiguration(
-    baseURL: "yourDomain.jamfcloud.com",  // Your Zuludesk domain
-    networkID: "10482058",                 // From Devices > Enroll Device(s)
-    apiKey: "YOUR_ACTUAL_API_KEY"         // From Organization > Settings > API
-)
+The app now loads credentials from a secure `Config.plist` file that is excluded from version control:
+
+**Step 1:** Navigate to `Parent Control/` folder  
+**Step 2:** Copy `Config.plist.template` → `Config.plist`  
+**Step 3:** Open `Config.plist` and replace placeholder values with your actual credentials:
+
+```xml
+<key>API_BASE_URL</key>
+<string>yourDomain.jamfcloud.com/api</string>
+
+<key>NETWORK_ID</key>
+<string>10482058</string>  <!-- From Devices > Enroll Device(s) -->
+
+<key>API_KEY</key>
+<string>YOUR_ACTUAL_API_KEY</string>  <!-- From Organization > Settings > API -->
+
+<key>TEACHER_TOKEN</key>
+<string>YOUR_TEACHER_TOKEN</string>
+
+<key>CLASS_ID</key>
+<string>YOUR_CLASS_UUID</string>
 ```
+
+**Step 4:** Add `Config.plist` to your Xcode target:
+- In Xcode, right-click on "Parent Control" folder
+- Select "Add Files to Parent Control..."
+- Choose `Config.plist`
+- Ensure "Parent Control" target is checked
+- Verify it appears in Build Phases → Copy Bundle Resources
+
+**Step 5:** Verify `.gitignore` exists and includes `Config.plist`
+
+### Where to Find Your Credentials
+
+- **API_BASE_URL:** Your Jamf School/Zuludesk domain (e.g., "yourschool.jamfcloud.com/api")
+- **NETWORK_ID:** Found in Zuludesk under `Devices > Enroll Device(s)`
+- **API_KEY:** Generate from `Organization > Settings > API`
+- **TEACHER_TOKEN:** From your teacher account API settings
+- **CLASS_ID:** The UUID of the class you want to manage
+
+## 🚀 Quick Start
 
 ### 2. Use in Your Views
 
@@ -104,12 +153,14 @@ if let error = viewModel.errorMessage {
 }
 ```
 
-## 🔐 Authentication
+## 🔐 Authentication & Security
 
 The implementation uses HTTP Basic Authorization as specified by Zuludesk:
 - **Format:** `Authorization: Basic <base64(networkID:apiKey)>`
 - **Header:** Automatically added to all requests
-- **Security:** Credentials stored in `APIConfiguration`
+- **Security:** Credentials loaded from `Config.plist` (excluded from version control)
+- **Safe Distribution:** Template file (`Config.plist.template`) with placeholders for sharing code
+- **No Hard-Coded Secrets:** All sensitive data externalized
 
 ## 📊 Data Flow
 
@@ -185,10 +236,11 @@ API Request Flow:
 
 ## 📝 Next Steps
 
-1. **Update Credentials** ⚠️ REQUIRED
-   - Replace `YOUR_NETWORK_ID` in `APIConfiguration.swift`
-   - Replace `YOUR_API_KEY` in `APIConfiguration.swift`
-   - Update `baseURL` to your Zuludesk domain
+1. **Setup Config.plist** ⚠️ REQUIRED
+   - Copy `Config.plist.template` to `Config.plist`
+   - Fill in your actual credentials in `Config.plist`
+   - Add `Config.plist` to Xcode target's Copy Bundle Resources
+   - Verify `.gitignore` excludes `Config.plist`
 
 2. **Verify Device Endpoint**
    - The `/devices/` endpoint structure is assumed based on apps endpoint
@@ -207,11 +259,12 @@ API Request Flow:
    - Display error messages to users
    - Add manual refresh buttons if needed
 
-5. **Security Enhancements** (Recommended)
-   - Move credentials to secure storage (Keychain)
-   - Use environment variables for API keys
-   - Add `.gitignore` entry for config files
-   - Implement credential encryption
+5. **Security Enhancements** ✅ IMPLEMENTED
+   - ✅ Credentials moved to external Config.plist file
+   - ✅ `.gitignore` configured to exclude Config.plist
+   - ✅ Template file provided for easy distribution
+   - 🔄 Optional: Move to Keychain for production apps
+   - 🔄 Optional: Implement credential encryption
 
 ## 🧪 Testing
 
