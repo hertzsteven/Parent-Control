@@ -302,3 +302,9 @@ struct TeacherAuthResponse: Codable {
     let authenticatedAs: AuthenticatedUser
 }
 
+/// Response from token validation endpoint
+struct TokenValidationResponse: Codable {
+    let code: Int
+    let message: String
+}
+

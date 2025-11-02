@@ -30,7 +30,16 @@ struct ContentView: View {
     @EnvironmentObject var authManager: AuthenticationManager
     
     var body: some View {
-        if authManager.isAuthenticated {
+        if authManager.isValidating {
+            // Show loading during token validation
+            VStack(spacing: 20) {
+                ProgressView()
+                    .scaleEffect(1.5)
+                Text("Validating credentials...")
+                    .font(.headline)
+                    .foregroundColor(.secondary)
+            }
+        } else if authManager.isAuthenticated {
             DeviceSelectionView()
             // Uncomment below for testing API directly
             // TestingView()

@@ -15,6 +15,7 @@ class AuthenticationManager: ObservableObject {
     @Published var token: String?
     @Published var isAuthenticated: Bool = false
     @Published var authenticatedUser: AuthenticatedUser?
+    @Published var isValidating: Bool = false
     
     // MARK: - Keychain Keys
     
@@ -50,11 +51,52 @@ class AuthenticationManager: ObservableObject {
         }
     }
     
+    /// Validate the current token with the server
+    /// - Returns: True if token is valid, false otherwise
+    func validateCurrentToken() async -> Bool {
+        guard let token = token else {
+            return false
+        }
+        
+        await MainActor.run {
+            isValidating = true
+        }
+        
+        defer {
+            Task { @MainActor in
+                isValidating = false
+            }
+        }
+        
+        do {
+            let networkService = NetworkService()
+            let response = try await networkService.validateToken(token)
+            
+            // Check if validation was successful
+            let isValid = response.code == 200 && response.message == "ValidToken"
+            
+            #if DEBUG
+            print(isValid ? "✅ Token validated successfully" : "❌ Token validation failed: \(response.message)")
+            #endif
+            
+            return isValid
+            
+        } catch {
+            #if DEBUG
+            print("⚠️ Token validation error: \(error.localizedDescription)")
+            print("   Allowing access with cached token (network may be unavailable)")
+            #endif
+            // On network error, allow access with cached token (graceful degradation)
+            return true
+        }
+    }
+    
     /// Logout and clear stored credentials
     func logout() {
         token = nil
         authenticatedUser = nil
         isAuthenticated = false
+        isValidating = false
         clearKeychain()
     }
     
@@ -75,7 +117,7 @@ class AuthenticationManager: ObservableObject {
         }
     }
     
-    /// Load authentication data from Keychain
+    /// Load authentication data from Keychain and validate token
     private func loadPersistedAuth() {
         // Load token
         guard let token = loadFromKeychain(key: tokenKey) else {
@@ -84,20 +126,43 @@ class AuthenticationManager: ObservableObject {
         }
         
         // Load user data
-        if let userString = loadFromKeychain(key: userKey),
-           let userData = userString.data(using: .utf8),
-           let user = try? JSONDecoder().decode(AuthenticatedUser.self, from: userData) {
-            self.token = token
-            self.authenticatedUser = user
-            self.isAuthenticated = true
-            
-            #if DEBUG
-            print("✅ Loaded persisted authentication for: \(user.name)")
-            #endif
-        } else {
+        guard let userString = loadFromKeychain(key: userKey),
+              let userData = userString.data(using: .utf8),
+              let user = try? JSONDecoder().decode(AuthenticatedUser.self, from: userData) else {
             // Token exists but user data is corrupted, clear everything
             clearKeychain()
             isAuthenticated = false
+            return
+        }
+        
+        // Set token, user, and authenticated immediately (trust cached credentials)
+        self.token = token
+        self.authenticatedUser = user
+        self.isAuthenticated = true  // Set to true immediately to prevent login screen flash
+        
+        #if DEBUG
+        print("✅ Loaded persisted authentication for: \(user.name)")
+        print("🔍 Validating token with server...")
+        #endif
+        
+        // Validate token asynchronously in background
+        Task {
+            let isValid = await validateCurrentToken()
+            
+            await MainActor.run {
+                if isValid {
+                    // Token is valid, already authenticated
+                    #if DEBUG
+                    print("✅ Token validation successful - user remains authenticated")
+                    #endif
+                } else {
+                    // Token is invalid, clear everything and force re-login
+                    #if DEBUG
+                    print("❌ Token validation failed - clearing credentials")
+                    #endif
+                    self.logout()
+                }
+            }
         }
     }
     

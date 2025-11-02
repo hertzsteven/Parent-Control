@@ -75,8 +75,8 @@ final class ParentalControlViewModel {
         // Initialize app items
         self.appItems = initialAppItems
         
-        // Initialize devices with app associations
-        self.devices = devices ?? Self.createDefaultDevices(appItems: initialAppItems)
+        // Initialize devices as empty - will be populated from API
+        self.devices = devices ?? []
     }
     
     // MARK: - Default Data

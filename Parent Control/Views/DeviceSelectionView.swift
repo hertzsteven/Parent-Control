@@ -27,8 +27,8 @@ struct DeviceSelectionView: View {
                 AppTheme.Colors.background
                     .ignoresSafeArea()
                 
-                // Show loading state while fetching data
-                if viewModel.isLoading {
+                // Show loading state while fetching data OR if data hasn't been loaded yet
+                if viewModel.isLoading || !viewModel.hasLoadedData {
                     VStack(spacing: AppTheme.Spacing.lg) {
                         ProgressView()
                             .scaleEffect(1.5)

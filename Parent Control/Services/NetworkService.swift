@@ -251,6 +251,24 @@ final class NetworkService {
         return response
     }
     
+    /// Validate an existing teacher token
+    /// - Parameter token: The teacher token to validate
+    /// - Returns: TokenValidationResponse indicating if token is valid
+    /// - Throws: NetworkError if request fails
+    func validateToken(_ token: String) async throws -> TokenValidationResponse {
+        let endpoint = "/teacher/validate?token=\(token)"
+        
+        // Use custom request method with protocol version 2 and cookie
+        let response: TokenValidationResponse = try await request(
+            endpoint: endpoint,
+            method: "GET",
+            protocolVersion: "2",
+            additionalHeaders: ["Cookie": "hash=c683a60c07d2f6e4b1fd4e385d034954"]
+        )
+        
+        return response
+    }
+    
     // MARK: - Private Methods
     
     /// Generic request method for API calls
