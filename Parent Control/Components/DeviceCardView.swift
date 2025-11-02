@@ -24,6 +24,23 @@ struct DeviceCardView: View {
                 Image(systemName: device.iconName)
                     .font(.system(size: 44))
                     .foregroundColor(AppTheme.Colors.textPrimary)
+                
+                // Battery indicator badge (optional)
+                if let batteryLevel = device.batteryLevel {
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Spacer()
+                            Image(systemName: device.batteryIcon())
+                                .font(.caption2)
+                                .foregroundColor(device.batteryColor())
+                                .padding(4)
+                                .background(AppTheme.Colors.cardBackground)
+                                .clipShape(Circle())
+                        }
+                    }
+                    .frame(width: 80, height: 80)
+                }
             }
             
             // Device name
@@ -32,8 +49,16 @@ struct DeviceCardView: View {
                 .foregroundColor(AppTheme.Colors.textPrimary)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
+            
+            // Model name (optional, compact display)
+            if let modelName = device.modelName {
+                Text(modelName)
+                    .font(.caption2)
+                    .foregroundColor(AppTheme.Colors.textSecondary)
+                    .lineLimit(1)
+            }
         }
-        .frame(width: 140, height: 160)
+        .frame(width: 140, height: 180) // Increased height slightly to accommodate new info
         .cardStyle()
     }
 }

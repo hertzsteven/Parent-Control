@@ -105,14 +105,55 @@ extension DeviceDTO {
         // Extract owner ID and convert to String (will be nil if not assigned)
         let ownerIdString = owner?.id.map { String($0) }
         
+        // Format model name for display
+        let formattedModelName = formatModelName()
+        
+        // Normalize battery level: API might return 0-1 or 0-100
+        let normalizedBatteryLevel: Double? = {
+            guard let level = batteryLevel else { return nil }
+            // If battery level is > 1.0, assume it's in percentage format (0-100)
+            // Convert to decimal format (0.0-1.0)
+            let percentage = Int(level > 1.0 ? level : level * 100)
+            if level > 1.0 {
+                print("⚡️ \(name): \(level)% → \(level/100) (converted from percentage)")
+                return level / 100.0
+            } else {
+                print("⚡️ \(name): \(percentage)% (battery level: \(level))")
+                return level
+            }
+        }()
+        
         return Device(
             udid: udid,
             name: name,
             iconName: mapToIconName(),
             ringColor: mapToRingColor(),
             appIds: mappedAppIds,
-            ownerId: ownerIdString
+            ownerId: ownerIdString,
+            batteryLevel: normalizedBatteryLevel,
+            modelName: formattedModelName,
+            deviceClass: deviceClass
         )
+    }
+    
+    /// Format model name for user-friendly display
+    private func formatModelName() -> String? {
+        guard let model = model else { return nil }
+        
+        // Try to create a nice display name from model info
+        if let modelName = model.name, !modelName.isEmpty {
+            // If we have model identifier (like "iPad13,8"), try to extract useful info
+            if let identifier = model.identifier, !identifier.isEmpty {
+                // Extract generation info from identifier if available
+                // e.g., "iPad13,8" -> could map to "iPad (A15)" or similar
+                return modelName
+            }
+            return modelName
+        } else if let identifier = model.identifier {
+            return identifier
+        }
+        
+        return deviceClass?.capitalized
     }
     
     /// Map device type/model to SF Symbol icon name

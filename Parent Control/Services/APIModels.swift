@@ -230,3 +230,47 @@ struct TeacherDTO: Codable {
     let photo: String?
 }
 
+// MARK: - Classes List Response
+
+/// Response structure for classes list endpoint
+struct ClassesListResponse: Codable {
+    let classes: [ClassListItem]
+}
+
+/// Individual class item in the classes list
+struct ClassListItem: Codable {
+    let uuid: String
+    let name: String
+    let description: String?
+    let studentCount: Int
+    let teacherCount: Int
+    
+    enum CodingKeys: String, CodingKey {
+        case uuid, name, description, studentCount, teacherCount
+    }
+}
+
+// MARK: - Teacher Groups Response
+
+/// Response structure for teacher groups endpoint
+struct TeacherGroupsResponse: Codable {
+    let code: Int
+    let results: [TeacherGroup]
+}
+
+/// Individual teacher group
+struct TeacherGroup: Codable {
+    let id: Int
+    let name: String
+    let description: String?
+    let classNumber: String?
+    let photo: String?
+    let colorId: Int?
+    let isShared: Bool?
+    let isEditable: Bool?
+    
+    enum CodingKeys: String, CodingKey {
+        case id, name, description, classNumber, photo, colorId, isShared, isEditable
+    }
+}
+

@@ -15,6 +15,12 @@ struct TestingView: View {
     @State private var isTestingAppLock = false
     @State private var unlockResult: String?
     @State private var isTestingUnlock = false
+    @State private var classesResult: String?
+    @State private var isLoadingClasses = false
+    @State private var classList: [ClassListItem] = []
+    @State private var teacherGroupsResult: String?
+    @State private var isLoadingTeacherGroups = false
+    @State private var teacherGroupsList: [TeacherGroup] = []
     
     var body: some View {
         NavigationStack {
@@ -111,6 +117,48 @@ struct TestingView: View {
                 .disabled(isTestingUnlock)
                 .padding(.horizontal)
                 
+                // Fetch Classes button
+                Button {
+                    Task {
+                        isLoadingClasses = true
+                        classesResult = nil
+                        classList = []
+                        await fetchClassesList()
+                        isLoadingClasses = false
+                    }
+                } label: {
+                    Label("Fetch Classes List", systemImage: "list.bullet.rectangle")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.green)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                }
+                .disabled(isLoadingClasses)
+                .padding(.horizontal)
+                
+                // Fetch Teacher Groups button
+                Button {
+                    Task {
+                        isLoadingTeacherGroups = true
+                        teacherGroupsResult = nil
+                        teacherGroupsList = []
+                        await fetchTeacherGroups()
+                        isLoadingTeacherGroups = false
+                    }
+                } label: {
+                    Label("Fetch Teacher Groups", systemImage: "person.3.sequence")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.teal)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                }
+                .disabled(isLoadingTeacherGroups)
+                .padding(.horizontal)
+                
                 // App Lock result display
                 if let appLockResult = appLockResult {
                     VStack(alignment: .leading, spacing: 8) {
@@ -155,6 +203,195 @@ struct TestingView: View {
                 if isTestingUnlock {
                     ProgressView("Testing Unlock...")
                         .padding()
+                }
+                
+                // Classes result display
+                if let classesResult = classesResult {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label(classesResult.contains("✅") ? "Success" : "Result", 
+                              systemImage: classesResult.contains("✅") ? "checkmark.circle.fill" : "info.circle.fill")
+                            .font(.headline)
+                            .foregroundColor(classesResult.contains("✅") ? .green : .blue)
+                        Text(classesResult)
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                    .background((classesResult.contains("✅") ? Color.green : Color.blue).opacity(0.1))
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+                }
+                
+                // Loading indicator for classes
+                if isLoadingClasses {
+                    ProgressView("Fetching Classes...")
+                        .padding()
+                }
+                
+                // Classes list display
+                if !classList.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("📚 Classes (\(classList.count))")
+                            .font(.headline)
+                            .padding(.horizontal)
+                        
+                        ScrollView {
+                            LazyVStack(spacing: 12) {
+                                ForEach(classList, id: \.uuid) { classItem in
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        HStack {
+                                            Image(systemName: "person.3.fill")
+                                                .foregroundColor(.green)
+                                            Text(classItem.name)
+                                                .font(.subheadline)
+                                                .fontWeight(.semibold)
+                                        }
+                                        
+                                        if let description = classItem.description {
+                                            Text(description)
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        
+                                        HStack(spacing: 16) {
+                                            HStack(spacing: 4) {
+                                                Image(systemName: "person.fill")
+                                                    .font(.caption2)
+                                                Text("\(classItem.studentCount) students")
+                                                    .font(.caption)
+                                            }
+                                            .foregroundColor(.blue)
+                                            
+                                            HStack(spacing: 4) {
+                                                Image(systemName: "person.badge.key.fill")
+                                                    .font(.caption2)
+                                                Text("\(classItem.teacherCount) teachers")
+                                                    .font(.caption)
+                                            }
+                                            .foregroundColor(.purple)
+                                        }
+                                        
+                                        Text("UUID: \(classItem.uuid)")
+                                            .font(.caption2)
+                                            .foregroundColor(.gray)
+                                            .lineLimit(1)
+                                    }
+                                    .padding(12)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(Color.gray.opacity(0.1))
+                                    .cornerRadius(8)
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
+                        .frame(maxHeight: 400)
+                    }
+                }
+                
+                // Teacher Groups result display
+                if let teacherGroupsResult = teacherGroupsResult {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label(teacherGroupsResult.contains("✅") ? "Success" : "Result", 
+                              systemImage: teacherGroupsResult.contains("✅") ? "checkmark.circle.fill" : "info.circle.fill")
+                            .font(.headline)
+                            .foregroundColor(teacherGroupsResult.contains("✅") ? .green : .blue)
+                        Text(teacherGroupsResult)
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                    .background((teacherGroupsResult.contains("✅") ? Color.green : Color.blue).opacity(0.1))
+                    .cornerRadius(8)
+                    .padding(.horizontal)
+                }
+                
+                // Loading indicator for teacher groups
+                if isLoadingTeacherGroups {
+                    ProgressView("Fetching Teacher Groups...")
+                        .padding()
+                }
+                
+                // Teacher groups list display
+                if !teacherGroupsList.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("👥 Teacher Groups (\(teacherGroupsList.count))")
+                            .font(.headline)
+                            .padding(.horizontal)
+                        
+                        ScrollView {
+                            LazyVStack(spacing: 12) {
+                                ForEach(teacherGroupsList, id: \.id) { group in
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        HStack {
+                                            Image(systemName: "person.3.sequence.fill")
+                                                .foregroundColor(.teal)
+                                            Text(group.name)
+                                                .font(.subheadline)
+                                                .fontWeight(.semibold)
+                                            
+                                            Spacer()
+                                            
+                                            // Color indicator
+                                            if let colorId = group.colorId, colorId > 0 {
+                                                Circle()
+                                                    .fill(Color.teal)
+                                                    .frame(width: 12, height: 12)
+                                            }
+                                        }
+                                        
+                                        if let description = group.description, !description.isEmpty {
+                                            Text(description)
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                        }
+                                        
+                                        if let classNumber = group.classNumber, !classNumber.isEmpty {
+                                            HStack(spacing: 4) {
+                                                Image(systemName: "number")
+                                                    .font(.caption2)
+                                                Text("Class: \(classNumber)")
+                                                    .font(.caption)
+                                            }
+                                            .foregroundColor(.blue)
+                                        }
+                                        
+                                        HStack(spacing: 12) {
+                                            if let isShared = group.isShared {
+                                                HStack(spacing: 4) {
+                                                    Image(systemName: isShared ? "person.2.fill" : "person.fill")
+                                                        .font(.caption2)
+                                                    Text(isShared ? "Shared" : "Private")
+                                                        .font(.caption)
+                                                }
+                                                .foregroundColor(isShared ? .green : .gray)
+                                            }
+                                            
+                                            if let isEditable = group.isEditable {
+                                                HStack(spacing: 4) {
+                                                    Image(systemName: isEditable ? "pencil" : "lock.fill")
+                                                        .font(.caption2)
+                                                    Text(isEditable ? "Editable" : "Read-only")
+                                                        .font(.caption)
+                                                }
+                                                .foregroundColor(isEditable ? .purple : .orange)
+                                            }
+                                        }
+                                        
+                                        Text("ID: \(group.id)")
+                                            .font(.caption2)
+                                            .foregroundColor(.gray)
+                                            .lineLimit(1)
+                                    }
+                                    .padding(12)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(Color.gray.opacity(0.1))
+                                    .cornerRadius(8)
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
+                        .frame(maxHeight: 400)
+                    }
                 }
                 
                 // Error message
@@ -475,6 +712,110 @@ struct TestingView: View {
             print("⚠️ Unknown Error: \(error.localizedDescription)")
             print(String(repeating: "=", count: 80) + "\n")
             unlockResult = "❌ Failed: \(error.localizedDescription)"
+        }
+    }
+    
+    // Fetch classes list API call
+    private func fetchClassesList() async {
+        print("\n" + String(repeating: "=", count: 80))
+        print("📚 FETCHING CLASSES LIST")
+        print(String(repeating: "=", count: 80))
+        
+        let networkService = NetworkService()
+        
+        do {
+            let response = try await networkService.fetchClasses()
+            
+            print("\n✅ Classes Fetched Successfully!")
+            print("Total Classes: \(response.classes.count)")
+            print(String(repeating: "-", count: 80))
+            
+            for (index, classItem) in response.classes.enumerated() {
+                print("\n[\(index + 1)] \(classItem.name)")
+                print("    UUID: \(classItem.uuid)")
+                if let description = classItem.description {
+                    print("    Description: \(description)")
+                }
+                print("    Students: \(classItem.studentCount)")
+                print("    Teachers: \(classItem.teacherCount)")
+            }
+            
+            print("\n" + String(repeating: "=", count: 80) + "\n")
+            
+            // Update UI state
+            classList = response.classes
+            classesResult = "✅ SUCCESS!\n\nFetched \(response.classes.count) classes from the API"
+            
+        } catch let error as NetworkError {
+            print("\n❌ Failed to Fetch Classes!")
+            print("⚠️ Error: \(error.localizedDescription)")
+            print(String(repeating: "=", count: 80) + "\n")
+            classesResult = "❌ Failed: \(error.localizedDescription)"
+            
+        } catch {
+            print("\n❌ Failed to Fetch Classes!")
+            print("⚠️ Unknown Error: \(error.localizedDescription)")
+            print(String(repeating: "=", count: 80) + "\n")
+            classesResult = "❌ Failed: \(error.localizedDescription)"
+        }
+    }
+    
+    // Fetch teacher groups API call
+    private func fetchTeacherGroups() async {
+        print("\n" + String(repeating: "=", count: 80))
+        print("👥 FETCHING TEACHER GROUPS")
+        print(String(repeating: "=", count: 80))
+        
+        let networkService = NetworkService()
+        
+        do {
+            let token = "c49e7499b1604582965b0c97affb522b"
+            print("🔑 Token: \(token)")
+            
+            let response = try await networkService.fetchTeacherGroups(token: token)
+            
+            print("\n✅ Teacher Groups Fetched Successfully!")
+            print("Response Code: \(response.code)")
+            print("Total Groups: \(response.results.count)")
+            print(String(repeating: "-", count: 80))
+            
+            for (index, group) in response.results.enumerated() {
+                print("\n[\(index + 1)] \(group.name)")
+                print("    ID: \(group.id)")
+                if let description = group.description, !description.isEmpty {
+                    print("    Description: \(description)")
+                }
+                if let classNumber = group.classNumber, !classNumber.isEmpty {
+                    print("    Class Number: \(classNumber)")
+                }
+                if let colorId = group.colorId {
+                    print("    Color ID: \(colorId)")
+                }
+                if let isShared = group.isShared {
+                    print("    Shared: \(isShared)")
+                }
+                if let isEditable = group.isEditable {
+                    print("    Editable: \(isEditable)")
+                }
+            }
+            
+            print("\n" + String(repeating: "=", count: 80) + "\n")
+            
+            // Update UI state
+            teacherGroupsList = response.results
+            teacherGroupsResult = "✅ SUCCESS!\n\nFetched \(response.results.count) teacher groups from the API"
+            
+        } catch let error as NetworkError {
+            print("\n❌ Failed to Fetch Teacher Groups!")
+            print("⚠️ Error: \(error.localizedDescription)")
+            print(String(repeating: "=", count: 80) + "\n")
+            teacherGroupsResult = "❌ Failed: \(error.localizedDescription)"
+            
+        } catch {
+            print("\n❌ Failed to Fetch Teacher Groups!")
+            print("⚠️ Unknown Error: \(error.localizedDescription)")
+            print(String(repeating: "=", count: 80) + "\n")
+            teacherGroupsResult = "❌ Failed: \(error.localizedDescription)"
         }
     }
 }

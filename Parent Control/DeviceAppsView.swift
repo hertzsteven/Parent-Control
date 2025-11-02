@@ -83,10 +83,33 @@ struct DeviceAppsView: View {
                         .foregroundColor(AppTheme.Colors.textPrimary)
                 }
                 
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(device.name)
                         .font(AppTheme.Typography.childName)
                         .foregroundColor(AppTheme.Colors.textPrimary)
+                    
+                    // Device model and battery info
+                    HStack(spacing: 8) {
+                        // Model name
+                        if let modelName = device.modelName {
+                            Text(modelName)
+                                .font(.caption)
+                                .foregroundColor(AppTheme.Colors.textSecondary)
+                        }
+                        
+                        // Battery level
+                        if let batteryLevel = device.batteryLevel {
+                            HStack(spacing: 3) {
+                                Image(systemName: device.batteryIcon())
+                                    .font(.caption)
+                                if let percentage = device.batteryPercentage {
+                                    Text(percentage)
+                                        .font(.caption)
+                                }
+                            }
+                            .foregroundColor(device.batteryColor())
+                        }
+                    }
                     
                     // Show owner info
                     if let ownerId = device.ownerId {

@@ -76,6 +76,35 @@ final class NetworkService {
         return response.devices
     }
     
+    /// Fetch all classes from Zuludesk API
+    /// - Returns: ClassesListResponse with list of all classes
+    /// - Throws: NetworkError if request fails
+    func fetchClasses() async throws -> ClassesListResponse {
+        let endpoint = "/classes"
+        let response: ClassesListResponse = try await request(
+            endpoint: endpoint,
+            method: "GET",
+            protocolVersion: "3",
+            additionalHeaders: ["Cookie": "hash=c683a60c07d2f6e4b1fd4e385d034954"]
+        )
+        return response
+    }
+    
+    /// Fetch teacher groups from Zuludesk API
+    /// - Parameter token: Teacher API token
+    /// - Returns: TeacherGroupsResponse with list of teacher groups
+    /// - Throws: NetworkError if request fails
+    func fetchTeacherGroups(token: String) async throws -> TeacherGroupsResponse {
+        let endpoint = "/teacher/groups?token=\(token)"
+        let response: TeacherGroupsResponse = try await request(
+            endpoint: endpoint,
+            method: "GET",
+            protocolVersion: "2",
+            additionalHeaders: ["Cookie": "hash=c683a60c07d2f6e4b1fd4e385d034954"]
+        )
+        return response
+    }
+    
     /// Fetch class details from Zuludesk API
     /// - Parameter classId: The UUID of the class to fetch
     /// - Returns: ClassResponse with class details and students
