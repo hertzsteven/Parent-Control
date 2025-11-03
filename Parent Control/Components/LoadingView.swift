@@ -19,21 +19,14 @@ struct LoadingView: View {
             
             VStack(spacing: 24) {
                 // Animated app icon
-                HStack {
-                    Spacer()
-                    Image("appIconImage")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 104, height: 104)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    Spacer()
-                }
-//                Image(systemName: "lock.shield.fill")
-                    .font(.system(size: 80))
-                    .foregroundColor(.pink)
+                Image("appIconImage")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 100, height: 100)
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                     .scaleEffect(scale)
                     .opacity(opacity)
-                    .shadow(color: .pink.opacity(0.3), radius: 20)
+                    .shadow(color: AppTheme.Colors.primary.opacity(0.3), radius: 20)
                 
                 Text(message)
                     .font(AppTheme.Typography.childName)
