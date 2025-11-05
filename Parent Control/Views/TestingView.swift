@@ -885,7 +885,7 @@ struct TestingView: View {
             let deviceUDID = "00008120-0012391420214032"
             let userId = "143"
             let bundleId = "com.thup.MonkeyMath"
-            let clearAfter = 60 // seconds
+            let clearAfter = 86400 // seconds
             guard let token = authManager.token else {
                 appLockResult = "❌ No authentication token available"
                 return

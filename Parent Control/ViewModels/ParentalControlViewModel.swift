@@ -232,7 +232,7 @@ final class ParentalControlViewModel {
                                   userInfo: [NSLocalizedDescriptionKey: errorMessage]))
         }
         
-        let clearAfter = 60 // seconds
+        let clearAfter = 86400 // seconds
         
         do {
             // Get token from AuthenticationManager
@@ -282,7 +282,7 @@ final class ParentalControlViewModel {
             }
             print(String(repeating: "=", count: 80) + "\n")
             
-            let successMessage = "Device locked to \(app.title) for \(clearAfter) seconds"
+            let successMessage = "In a few seconds, the device will be locked to \(app.title)."
             return .success(successMessage)
             
         } catch let error as NetworkError {
@@ -348,7 +348,7 @@ final class ParentalControlViewModel {
             }
             print(String(repeating: "=", count: 80) + "\n")
             
-            let successMessage = "\(device.name) has been unlocked"
+            let successMessage = "\(device.name)  unlocked"
             return .success(successMessage)
             
         } catch let error as NetworkError {
