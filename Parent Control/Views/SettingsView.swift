@@ -12,8 +12,11 @@ struct SettingsView: View {
     @EnvironmentObject var authManager: AuthenticationManager
     var viewModel: ParentalControlViewModel
     
+    @ObservedObject private var appCounter = AppSelectionCounter.shared
+    
     @State private var showAbout = false
     @State private var showDeviceAppManagement = false
+    @State private var showAllDevicesStatistics = false
     @State private var showContactSupportAlert = false
     @State private var showHelpAlert = false
     @State private var showReportIssueAlert = false
@@ -68,6 +71,62 @@ struct SettingsView: View {
                     Text("Device Management")
                 } footer: {
                     Text("Choose which apps appear for each device")
+                }
+                
+                // MARK: - App Usage Statistics Section
+                Section {
+                    // Summary
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Label("Total Selections", systemImage: "chart.bar.fill")
+                            Spacer()
+                            Text("\(appCounter.getTotalSelections())")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        if !viewModel.devices.isEmpty {
+                            Divider()
+                            
+                            Text("Devices")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            
+                            ForEach(viewModel.devices) { device in
+                                let deviceTotal = appCounter.getTotalSelections(for: device.udid)
+                                if deviceTotal > 0 {
+                                    HStack {
+                                        HStack(spacing: 8) {
+                                            Image(systemName: device.iconName)
+                                                .foregroundColor(device.color)
+                                            Text(device.name)
+                                                .foregroundColor(.primary)
+                                        }
+                                        Spacer()
+                                        Text("\(deviceTotal)")
+                                            .font(.subheadline)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                    
+                    if !viewModel.devices.isEmpty && viewModel.devices.contains(where: { appCounter.getTotalSelections(for: $0.udid) > 0 }) {
+                        Button {
+                            showAllDevicesStatistics = true
+                        } label: {
+                            Label("Statistics Dashboard", systemImage: "chart.bar.doc.horizontal")
+                                .foregroundColor(.blue)
+                                .font(.body)
+                                .fontWeight(.medium)
+                        }
+                    }
+                } header: {
+                    Text("App Usage Statistics")
+                } footer: {
+                    Text("Track how many times each app has been selected per device")
                 }
                 
                 // MARK: - App Information Section
@@ -160,6 +219,9 @@ struct SettingsView: View {
                     viewModel: viewModel,
                     appPreferences: .shared
                 )
+            }
+            .sheet(isPresented: $showAllDevicesStatistics) {
+                AllDevicesUsageStatisticsView(viewModel: viewModel)
             }
             .alert("Contact Support", isPresented: $showContactSupportAlert) {
                 Button("OK", role: .cancel) { }

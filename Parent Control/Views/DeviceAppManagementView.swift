@@ -12,6 +12,7 @@ struct DeviceAppManagementView: View {
     @Environment(\.dismiss) private var dismiss
     var viewModel: ParentalControlViewModel
     @ObservedObject var appPreferences: DeviceAppPreferences
+    @ObservedObject private var appCounter = AppSelectionCounter.shared
     
     @State private var selectedDevice: Device?
     
@@ -238,6 +239,7 @@ struct DeviceAppManagementView: View {
     @ViewBuilder
     private func appToggleRow(app: AppItem, device: Device) -> some View {
         let isHidden = appPreferences.isAppHidden(app.id, for: device.udid)
+        let count = appCounter.getCount(for: app.id, deviceUDID: device.udid)
         
         Button {
             appPreferences.toggleAppVisibility(app.id, for: device.udid)
@@ -248,9 +250,23 @@ struct DeviceAppManagementView: View {
                     .opacity(isHidden ? 0.5 : 1.0)
                 
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
-                    Text(app.title)
-                        .font(AppTheme.Typography.appTitle)
-                        .foregroundColor(isHidden ? AppTheme.Colors.textSecondary : AppTheme.Colors.textPrimary)
+                    HStack(spacing: 8) {
+                        Text(app.title)
+                            .font(AppTheme.Typography.appTitle)
+                            .foregroundColor(isHidden ? AppTheme.Colors.textSecondary : AppTheme.Colors.textPrimary)
+                        
+                        // Count badge
+                        if count > 0 {
+                            Text("\(count)")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(minWidth: 18, minHeight: 18)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .background(device.color)
+                                .clipShape(Capsule())
+                        }
+                    }
                     
                     Text(app.description)
                         .font(AppTheme.Typography.appDescription)

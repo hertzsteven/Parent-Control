@@ -6,6 +6,8 @@ struct DeviceAppsView: View {
     let device: Device
     var viewModel: ParentalControlViewModel
     
+    @ObservedObject private var appCounter = AppSelectionCounter.shared
+    
     @State private var filteredApps: [AppItem] = []
     @State private var isLocking: Bool = false
     @State private var isUnlocking: Bool = false
@@ -225,6 +227,8 @@ struct DeviceAppsView: View {
     /// Individual app row with lock functionality
     @ViewBuilder
     private func appItemRow(for item: AppItem) -> some View {
+        let count = appCounter.getCount(for: item.id, deviceUDID: device.udid)
+        
         Button {
             if device.hasOwner {
                 lockDeviceToApp(item)
@@ -232,7 +236,7 @@ struct DeviceAppsView: View {
                 showOwnerWarning = true
             }
         } label: {
-            TileView(item: item)
+            TileView(item: item, count: count > 0 ? count : nil)
         }
         .buttonStyle(.plain)
         .disabled(isLocking || !device.hasOwner)
@@ -252,6 +256,8 @@ struct DeviceAppsView: View {
             
             switch result {
             case .success(let message):
+                // Increment counter on successful lock
+                appCounter.incrementCount(for: app.id, deviceUDID: device.udid)
                 alertTitle = "Success"
                 alertMessage = message
                 showAlert = true
