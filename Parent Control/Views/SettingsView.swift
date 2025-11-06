@@ -14,6 +14,11 @@ struct SettingsView: View {
     
     @State private var showAbout = false
     @State private var showDeviceAppManagement = false
+    @State private var showContactSupportAlert = false
+    @State private var showHelpAlert = false
+    @State private var showReportIssueAlert = false
+    @State private var showPrivacyAlert = false
+    @State private var showTermsAlert = false
     
     var body: some View {
         NavigationStack {
@@ -98,27 +103,42 @@ struct SettingsView: View {
                             .foregroundColor(.primary)
                     }
                     
-                    Link(destination: URL(string: "mailto:support@parentcontrol.com?subject=Parent%20Control%20Support")!) {
+                    Button {
+                        showContactSupportAlert = true
+                    } label: {
                         Label("Contact Support", systemImage: "envelope.circle")
+                            .foregroundColor(.primary)
                     }
                     
-                    Link(destination: URL(string: "https://parentcontrol.com/help")!) {
+                    Button {
+                        showHelpAlert = true
+                    } label: {
                         Label("Help & FAQ", systemImage: "questionmark.circle")
+                            .foregroundColor(.primary)
                     }
                     
-                    Link(destination: URL(string: "https://parentcontrol.com/feedback")!) {
+                    Button {
+                        showReportIssueAlert = true
+                    } label: {
                         Label("Report an Issue", systemImage: "exclamationmark.bubble")
+                            .foregroundColor(.primary)
                     }
                 }
                 
                 // MARK: - Legal Section
                 Section("Legal") {
-                    Link(destination: URL(string: "https://parentcontrol.com/privacy")!) {
+                    Button {
+                        showPrivacyAlert = true
+                    } label: {
                         Label("Privacy Policy", systemImage: "hand.raised.circle")
+                            .foregroundColor(.primary)
                     }
                     
-                    Link(destination: URL(string: "https://parentcontrol.com/terms")!) {
+                    Button {
+                        showTermsAlert = true
+                    } label: {
                         Label("Terms of Service", systemImage: "doc.text.circle")
+                            .foregroundColor(.primary)
                     }
                 }
             }
@@ -140,6 +160,31 @@ struct SettingsView: View {
                     viewModel: viewModel,
                     appPreferences: .shared
                 )
+            }
+            .alert("Contact Support", isPresented: $showContactSupportAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("Support features are coming soon. For assistance, please contact your administrator.")
+            }
+            .alert("Help & FAQ", isPresented: $showHelpAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("Help documentation is coming soon. Please check back later for guides and frequently asked questions.")
+            }
+            .alert("Report an Issue", isPresented: $showReportIssueAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("Issue reporting is coming soon. For now, please contact your administrator with any problems.")
+            }
+            .alert("Privacy Policy", isPresented: $showPrivacyAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("Privacy policy documentation is coming soon. Your data is secure and handled with care.")
+            }
+            .alert("Terms of Service", isPresented: $showTermsAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("Terms of service documentation is coming soon. Please use the app responsibly.")
             }
         }
     }
