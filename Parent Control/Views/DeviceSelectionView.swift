@@ -19,8 +19,8 @@ import SwiftUI
 struct DeviceSelectionView: View {
     @EnvironmentObject var authManager: AuthenticationManager
     @State private var viewModel: ParentalControlViewModel
-    @State private var showAccountMenu = false
-    @State private var loadingTask: Task<Void, Never>? = nil  // ADD THIS LINE
+    @State private var showSettings = false
+    @State private var loadingTask: Task<Void, Never>? = nil
     
     let columns = [
         GridItem(.flexible(), spacing: AppTheme.Spacing.lg),
@@ -74,15 +74,9 @@ struct DeviceSelectionView: View {
                         Text(error)
                     }
                 }
-                .confirmationDialog("Account", isPresented: $showAccountMenu) {
-                    Button("Switch User") {
-                        authManager.logout(isVoluntary: true)
-                    }
-                    Button("Cancel", role: .cancel) { }
-                } message: {
-                    if let user = authManager.authenticatedUser {
-                        Text("Logged in as \(user.name)")
-                    }
+                .sheet(isPresented: $showSettings) {
+                    SettingsView()
+                        .environmentObject(authManager)
                 }
             }
         }
@@ -134,9 +128,9 @@ struct DeviceSelectionView: View {
             
             Spacer()
             
-            Button(action: { showAccountMenu = true }) {
-                Image(systemName: "ellipsis")
-                    .font(AppTheme.Typography.navigationTitle)
+            Button(action: { showSettings = true }) {
+                Image(systemName: "gear")
+                    .font(.system(size: 22, weight: .medium))
             }
         }
         .navigationBarStyle()
