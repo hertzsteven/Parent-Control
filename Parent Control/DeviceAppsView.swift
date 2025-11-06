@@ -232,11 +232,7 @@ struct DeviceAppsView: View {
                 showOwnerWarning = true
             }
         } label: {
-            TileView(
-                item: item,
-                onIncrease: { viewModel.increaseAccess(for: item) },
-                onDecrease: { viewModel.decreaseAccess(for: item) }
-            )
+            TileView(item: item)
         }
         .buttonStyle(.plain)
         .disabled(isLocking || !device.hasOwner)

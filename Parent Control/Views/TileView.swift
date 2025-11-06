@@ -7,11 +7,9 @@
 
 import SwiftUI
 
-/// Card view displaying app information with access control buttons
+/// Card view displaying app information
 struct TileView: View {
     let item: AppItem
-    let onIncrease: () -> Void
-    let onDecrease: () -> Void
     
     var body: some View {
         HStack(spacing: AppTheme.Spacing.md) {
@@ -29,22 +27,6 @@ struct TileView: View {
             }
             
             Spacer()
-            
-            HStack(spacing: AppTheme.Spacing.md) {
-                Button(action: onIncrease) {
-                    Image(systemName: "plus.circle")
-                        .font(.system(size: AppTheme.Layout.controlButtonSize))
-                        .foregroundColor(AppTheme.Colors.primary)
-                }
-                .buttonStyle(.accessControl)
-                
-                Button(action: onDecrease) {
-                    Image(systemName: "minus.circle")
-                        .font(.system(size: AppTheme.Layout.controlButtonSize))
-                        .foregroundColor(AppTheme.Colors.primary)
-                }
-                .buttonStyle(.accessControl)
-            }
         }
         .padding(AppTheme.Spacing.lg)
         .cardStyle()
@@ -60,9 +42,7 @@ struct TileView_Previews: PreviewProvider {
                 description: "This is a description for the app item to preview the layout and style.",
                 iconName: "star.fill",
                 additionalInfo: "Additional Info"
-            ),
-            onIncrease: {},
-            onDecrease: {}
+            )
         )
         .previewLayout(.sizeThatFits)
         .padding()
