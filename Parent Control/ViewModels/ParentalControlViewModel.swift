@@ -49,6 +49,9 @@ final class ParentalControlViewModel {
     /// Authentication manager for accessing current token
     var authManager: AuthenticationManager?
     
+    /// Device app preferences for managing hidden apps
+    let appPreferences: DeviceAppPreferences
+    
     // MARK: - Initialization
     
     init(
@@ -57,11 +60,13 @@ final class ParentalControlViewModel {
         devices: [Device]? = nil,
         networkService: NetworkService = NetworkService(),
         configuration: APIConfiguration = .default,
-        authManager: AuthenticationManager? = nil
+        authManager: AuthenticationManager? = nil,
+        appPreferences: DeviceAppPreferences = .shared
     ) {
         self.networkService = networkService
         self.configuration = configuration
         self.authManager = authManager
+        self.appPreferences = appPreferences
         // Store app items in local variable first
         let initialAppItems = appItems ?? Self.defaultAppItems
         
@@ -168,8 +173,16 @@ final class ParentalControlViewModel {
     
     // MARK: - Computed Properties
     
-    /// Get apps filtered by selected device
+    /// Get apps filtered by selected device, excluding hidden apps
     func appsForDevice(_ device: Device) -> [AppItem] {
+        let hiddenApps = appPreferences.hiddenApps(for: device.udid)
+        return appItems.filter { app in
+            device.appIds.contains(app.id) && !hiddenApps.contains(app.id)
+        }
+    }
+    
+    /// Get ALL apps for a device (including hidden ones) - used in settings
+    func allAppsForDevice(_ device: Device) -> [AppItem] {
         appItems.filter { app in
             device.appIds.contains(app.id)
         }

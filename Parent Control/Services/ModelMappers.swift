@@ -13,7 +13,15 @@ extension AppDTO {
     /// Convert API DTO to app domain model
     /// - Returns: AppItem for use in the app
     func toAppItem() -> AppItem {
-        AppItem(
+        // Generate deterministic UUID from bundleId so it's consistent across app launches
+        let deterministicId = bundleId.deterministicUUID
+        
+        #if DEBUG
+        print("🔑 App '\(name)' -> UUID: \(deterministicId.uuidString.prefix(8))... (from bundleId: \(bundleId))")
+        #endif
+        
+        return AppItem(
+            id: deterministicId,
             title: name,
             description: "\(vendor) - \(platform)",
             iconName: mapToIconName(),
@@ -97,10 +105,12 @@ extension DeviceDTO {
     /// - Returns: Device for use in the app
     func toDevice(bundleIdMapping: [String: UUID]) -> Device {
         // Map device apps by bundleId to AppItem UUIDs
-        let mappedAppIds: [UUID] = apps?.compactMap { deviceApp in
+        // Use a Set to automatically deduplicate, then convert back to Array
+        let mappedAppIdsSet: Set<UUID> = Set(apps?.compactMap { deviceApp in
             guard let bundleId = deviceApp.identifier else { return nil }
             return bundleIdMapping[bundleId]
-        } ?? []
+        } ?? [])
+        let mappedAppIds = Array(mappedAppIdsSet)
         
         // Extract owner ID and convert to String (will be nil if not assigned)
         let ownerIdString = owner?.id.map { String($0) }
@@ -202,11 +212,19 @@ extension Array where Element == AppDTO {
     func toAppItems() -> (items: [AppItem], bundleIdMapping: [String: UUID]) {
         var items: [AppItem] = []
         var bundleIdMapping: [String: UUID] = [:]
+        var seenBundleIds = Set<String>() // Track which bundleIds we've already processed
         
         for dto in self {
+            // Skip if we've already processed this bundleId (prevents duplicates)
+            if seenBundleIds.contains(dto.bundleId) {
+                print("⚠️ Skipping duplicate app: \(dto.name) (bundleId: \(dto.bundleId))")
+                continue
+            }
+            
             let appItem = dto.toAppItem()
             items.append(appItem)
             bundleIdMapping[dto.bundleId] = appItem.id
+            seenBundleIds.insert(dto.bundleId)
         }
         
         return (items, bundleIdMapping)
@@ -219,6 +237,42 @@ extension Array where Element == DeviceDTO {
     /// - Returns: Array of Device objects
     func toDevices(bundleIdMapping: [String: UUID]) -> [Device] {
         self.map { $0.toDevice(bundleIdMapping: bundleIdMapping) }
+    }
+}
+
+// MARK: - Deterministic UUID Generation
+
+extension String {
+    /// Generate a deterministic UUID from a string (like bundleId)
+    /// This ensures the same string always produces the same UUID across app launches
+    var deterministicUUID: UUID {
+        // Use a fixed namespace UUID as a seed
+        let namespace = "A1B2C3D4-E5F6-7890-ABCD-EF1234567890"
+        
+        // Combine namespace and string to create deterministic data
+        let combinedString = namespace + self
+        let data = combinedString.data(using: .utf8)!
+        
+        // Generate 16 bytes for UUID using a simple hash algorithm
+        var hash = [UInt8](repeating: 0, count: 16)
+        for (index, byte) in data.enumerated() {
+            let position = index % 16
+            hash[position] = hash[position] &+ byte
+        }
+        
+        // Additional mixing to improve distribution
+        for i in 0..<16 {
+            hash[i] = hash[i] &+ UInt8((i * 17) % 256)
+        }
+        
+        // Format as UUID string
+        let uuidString = String(format: "%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X",
+                                hash[0], hash[1], hash[2], hash[3],
+                                hash[4], hash[5], hash[6], hash[7],
+                                hash[8], hash[9], hash[10], hash[11],
+                                hash[12], hash[13], hash[14], hash[15])
+        
+        return UUID(uuidString: uuidString) ?? UUID()
     }
 }
 

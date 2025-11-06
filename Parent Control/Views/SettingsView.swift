@@ -10,7 +10,10 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var authManager: AuthenticationManager
+    var viewModel: ParentalControlViewModel
+    
     @State private var showAbout = false
+    @State private var showDeviceAppManagement = false
     
     var body: some View {
         NavigationStack {
@@ -46,6 +49,20 @@ struct SettingsView: View {
                     Text("Account")
                 } footer: {
                     Text("Switch to a different teacher account")
+                }
+                
+                // MARK: - Device Management Section
+                Section {
+                    Button {
+                        showDeviceAppManagement = true
+                    } label: {
+                        Label("Manage Device Apps", systemImage: "apps.ipad")
+                            .foregroundColor(.primary)
+                    }
+                } header: {
+                    Text("Device Management")
+                } footer: {
+                    Text("Choose which apps appear for each device")
                 }
                 
                 // MARK: - App Information Section
@@ -117,6 +134,12 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showAbout) {
                 AboutView()
+            }
+            .sheet(isPresented: $showDeviceAppManagement) {
+                DeviceAppManagementView(
+                    viewModel: viewModel,
+                    appPreferences: .shared
+                )
             }
         }
     }
@@ -234,7 +257,7 @@ struct FeatureRow: View {
 // MARK: - Previews
 
 #Preview("Settings") {
-    SettingsView()
+    SettingsView(viewModel: ParentalControlViewModel())
         .environmentObject(AuthenticationManager())
 }
 

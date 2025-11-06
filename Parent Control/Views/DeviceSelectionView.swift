@@ -75,7 +75,7 @@ struct DeviceSelectionView: View {
                     }
                 }
                 .sheet(isPresented: $showSettings) {
-                    SettingsView()
+                    SettingsView(viewModel: viewModel)
                         .environmentObject(authManager)
                 }
             }
