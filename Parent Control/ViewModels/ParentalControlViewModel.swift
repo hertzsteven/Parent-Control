@@ -395,6 +395,20 @@ final class ParentalControlViewModel {
         
         print("\n🚀 Starting API data load...")
         
+        // Wait for network connectivity before making API calls
+        // This is critical for Single App Mode where app launches before network is ready
+        let reachability = NetworkReachabilityService.shared
+        let hasNetwork = await reachability.waitForConnectivity(timeout: 30, retryInterval: 2)
+        
+        guard hasNetwork else {
+            print("⚠️ No network available - cannot load data from API")
+            errorMessage = "No internet connection. Please check your network and try again."
+            isLoading = false
+            return
+        }
+        
+        print("🌐 Network available - proceeding with API calls...")
+        
         do {
             // Get token from AuthenticationManager
             guard let token = authManager?.token else {

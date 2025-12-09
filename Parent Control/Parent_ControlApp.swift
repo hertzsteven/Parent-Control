@@ -43,10 +43,15 @@ struct Parent_ControlApp: App {
 
 struct ContentView: View {
     @EnvironmentObject var authManager: AuthenticationManager
+    @ObservedObject private var reachability = NetworkReachabilityService.shared
     
     var body: some View {
+        // Show network waiting view while waiting for connectivity
+        if reachability.isWaitingForNetwork {
+            NetworkWaitingView()
+        }
         // If voluntary logout, show nothing (sheet will appear immediately)
-        if authManager.isVoluntaryLogout {
+        else if authManager.isVoluntaryLogout {
             Color.clear  // Transparent - sheet will cover it
         } else if authManager.isValidating {
             // Show animated loading during token validation

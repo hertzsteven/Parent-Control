@@ -173,11 +173,30 @@ class AuthenticationManager: ObservableObject {
         
         #if DEBUG
         print("✅ Loaded persisted authentication for: \(user.name)")
-        print("🔍 Validating token with server...")
+        print("🔍 Waiting for network before validating token...")
         #endif
         
-        // Validate token asynchronously in background
+        // Validate token asynchronously in background (with network wait)
         Task {
+            // Wait for network connectivity before validating token
+            // This is critical for Single App Mode where app launches before network is ready
+            let reachability = NetworkReachabilityService.shared
+            let hasNetwork = await reachability.waitForConnectivity(timeout: 30, retryInterval: 2)
+            
+            guard hasNetwork else {
+                #if DEBUG
+                print("⚠️ No network available - using cached credentials without validation")
+                #endif
+                await MainActor.run {
+                    self.isValidating = false
+                }
+                return  // Keep cached auth, skip validation
+            }
+            
+            #if DEBUG
+            print("🌐 Network available - validating token with server...")
+            #endif
+            
             let isValid = await validateCurrentToken()
             
             await MainActor.run {
