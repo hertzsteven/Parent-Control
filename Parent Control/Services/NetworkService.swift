@@ -73,7 +73,9 @@ final class NetworkService {
     func fetchDevices(includeApps: Bool = true) async throws -> [DeviceDTO] {
         let endpoint = "/devices/?includeApps=\(includeApps)"
         let response: DevicesResponse = try await request(endpoint: endpoint, method: "GET")
-        return response.devices
+        let devices = response.devices
+        print("fetchDevices(includeApps: \(includeApps)) returned \(devices.count) devices:", devices)
+        return devices
     }
     
     /// Fetch all classes from Zuludesk API
