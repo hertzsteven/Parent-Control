@@ -100,7 +100,7 @@ struct DeviceAppsView: View {
                         }
                         
                         // Battery level
-                        if let batteryLevel = device.batteryLevel {
+                        if device.batteryLevel != nil {
                             HStack(spacing: 3) {
                                 Image(systemName: device.batteryIcon())
                                     .font(.caption)
@@ -322,9 +322,20 @@ struct DeviceAppsView: View {
 // MARK: - Previews
 #Preview("Default") {
     let viewModel = ParentalControlViewModel()
-    let device = viewModel.devices.first ?? Device.sample
+    let fallbackDevice = Device(
+        udid: "00008120-0000000000000000",
+        name: "Preview iPad",
+        iconName: "ipad.gen1",
+        ringColor: "blue",
+        appIds: [],
+        ownerId: "143",
+        batteryLevel: 0.73,
+        modelName: "iPad (A16)",
+        deviceClass: "ipad"
+    )
+    let device = viewModel.devices.first ?? fallbackDevice
     
-    return NavigationStack {
+    NavigationStack {
         DeviceAppsView(device: device, viewModel: viewModel)
     }
 }
@@ -339,7 +350,7 @@ struct DeviceAppsView: View {
         appIds: []
     )
     
-    return NavigationStack {
+    NavigationStack {
         DeviceAppsView(device: device, viewModel: viewModel)
     }
 }
@@ -355,7 +366,7 @@ struct DeviceAppsView: View {
         appIds: [youtubeId]
     )
     
-    return NavigationStack {
+    NavigationStack {
         DeviceAppsView(device: device, viewModel: viewModel)
     }
 }

@@ -26,7 +26,7 @@ struct DeviceCardView: View {
                     .foregroundColor(AppTheme.Colors.textPrimary)
                 
                 // Battery indicator badge (optional)
-                if let batteryLevel = device.batteryLevel {
+                if device.batteryLevel != nil {
                     VStack {
                         Spacer()
                         HStack {
@@ -65,11 +65,38 @@ struct DeviceCardView: View {
 
 // MARK: - Preview
 #Preview {
+    let sampleDevice = Device(
+        udid: "00008120-0000000000000000",
+        name: "Living Room iPad",
+        iconName: "ipad.gen1",
+        ringColor: "blue",
+        appIds: [],
+        ownerId: "143",
+        batteryLevel: 0.73,
+        modelName: "iPad (A16)",
+        deviceClass: "ipad"
+    )
+    
+    let sampleDevices = [
+        sampleDevice,
+        Device(
+            udid: "00008120-0000000000000001",
+            name: "Bedroom iPad",
+            iconName: "ipad.gen2",
+            ringColor: "green",
+            appIds: [],
+            ownerId: "143",
+            batteryLevel: 0.42,
+            modelName: "iPad Air",
+            deviceClass: "ipad"
+        )
+    ]
+    
     VStack(spacing: AppTheme.Spacing.lg) {
-        DeviceCardView(device: Device.sample)
+        DeviceCardView(device: sampleDevice)
         
         HStack(spacing: AppTheme.Spacing.lg) {
-            ForEach(Device.samples) { device in
+            ForEach(sampleDevices) { device in
                 DeviceCardView(device: device)
             }
         }
