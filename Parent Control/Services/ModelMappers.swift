@@ -196,8 +196,34 @@ extension DeviceDTO {
         }
     }
     
-    /// Assign a ring color based on device UDID (for consistent coloring)
+    /// Assign a ring color based on device name (if it contains a color word) or UDID hash
     private func mapToRingColor() -> String {
+        let nameLower = name.lowercased()
+        
+        // Check if device name contains a color word and use that color
+        // Order matters: check more specific colors first
+        let colorMappings: [(keywords: [String], color: String)] = [
+            (["silver", "gray", "grey"], "silver"),
+            (["black"], "black"),
+            (["blue"], "blue"),
+            (["green"], "green"),
+            (["purple", "violet"], "purple"),
+            (["orange"], "orange"),
+            (["red"], "red"),
+            (["pink"], "pink"),
+            (["cyan", "teal"], "cyan"),
+            (["yellow", "gold"], "yellow")
+        ]
+        
+        for mapping in colorMappings {
+            for keyword in mapping.keywords {
+                if nameLower.contains(keyword) {
+                    return mapping.color
+                }
+            }
+        }
+        
+        // Fall back to hash-based assignment for devices without color in name
         let colors = ["blue", "green", "purple", "orange", "red", "pink", "cyan", "yellow"]
         let index = abs(udid.hashValue) % colors.count
         return colors[index]

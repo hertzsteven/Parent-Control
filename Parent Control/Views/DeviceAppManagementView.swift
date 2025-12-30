@@ -217,19 +217,20 @@ struct DeviceAppManagementView: View {
                 Spacer()
             }
             
-            if hiddenCount > 0 {
-                Button {
-                    appPreferences.clearHiddenApps(for: device.udid)
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "eye.fill")
-                        Text("Show All Apps")
-                    }
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(.blue)
+            // Always render button to prevent layout shift, but hide when not needed
+            Button {
+                appPreferences.clearHiddenApps(for: device.udid)
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "eye.fill")
+                    Text("Show All Apps")
                 }
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundColor(.blue)
             }
+            .opacity(hiddenCount > 0 ? 1.0 : 0.0)
+            .disabled(hiddenCount == 0)
         }
         .padding(AppTheme.Spacing.lg)
         .background(device.color.opacity(0.1))
@@ -241,59 +242,58 @@ struct DeviceAppManagementView: View {
         let isHidden = appPreferences.isAppHidden(app.id, for: device.udid)
         let count = appCounter.getCount(for: app.id, deviceUDID: device.udid)
         
-        Button {
-            appPreferences.toggleAppVisibility(app.id, for: device.udid)
-        } label: {
-            HStack(spacing: AppTheme.Spacing.md) {
-                // App icon
-                AppIconView(iconName: app.iconName, iconURL: app.iconURL)
-                    .opacity(isHidden ? 0.5 : 1.0)
-                
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
-                    HStack(spacing: 8) {
-                        Text(app.title)
-                            .font(AppTheme.Typography.appTitle)
-                            .foregroundColor(isHidden ? AppTheme.Colors.textSecondary : AppTheme.Colors.textPrimary)
-                        
-                        // Count badge
-                        if count > 0 {
-                            Text("\(count)")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundColor(.white)
-                                .frame(minWidth: 18, minHeight: 18)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 1)
-                                .background(device.color)
-                                .clipShape(Capsule())
-                        }
-                    }
-                    
-                    Text(app.description)
-                        .font(AppTheme.Typography.appDescription)
-                        .foregroundColor(AppTheme.Colors.textSecondary)
-                        .lineLimit(1)
-                }
+        HStack(spacing: AppTheme.Spacing.md) {
+            // App icon
+            AppIconView(iconName: app.iconName, iconURL: app.iconURL)
                 .opacity(isHidden ? 0.5 : 1.0)
-                
-                Spacer()
-                
-                // Toggle indicator
-                ZStack {
-                    Circle()
-                        .strokeBorder(isHidden ? Color.gray : device.color, lineWidth: 2)
-                        .frame(width: 28, height: 28)
+            
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+                HStack(spacing: 8) {
+                    Text(app.title)
+                        .font(AppTheme.Typography.appTitle)
+                        .foregroundColor(isHidden ? AppTheme.Colors.textSecondary : AppTheme.Colors.textPrimary)
                     
-                    if !isHidden {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(device.color)
+                    // Count badge
+                    if count > 0 {
+                        Text("\(count)")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(minWidth: 18, minHeight: 18)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1)
+                            .background(device.color)
+                            .clipShape(Capsule())
                     }
+                }
+                
+                Text(app.description)
+                    .font(AppTheme.Typography.appDescription)
+                    .foregroundColor(AppTheme.Colors.textSecondary)
+                    .lineLimit(1)
+            }
+            .opacity(isHidden ? 0.5 : 1.0)
+            
+            Spacer()
+            
+            // Toggle indicator
+            ZStack {
+                Circle()
+                    .strokeBorder(isHidden ? Color.gray : device.color, lineWidth: 2)
+                    .frame(width: 28, height: 28)
+                
+                if !isHidden {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(device.color)
                 }
             }
-            .padding(AppTheme.Spacing.lg)
-            .cardStyle()
         }
-        .buttonStyle(.plain)
+        .padding(AppTheme.Spacing.lg)
+        .cardStyle()
+        .contentShape(Rectangle())
+        .onTapGesture {
+            appPreferences.toggleAppVisibility(app.id, for: device.udid)
+        }
     }
     
     @ViewBuilder

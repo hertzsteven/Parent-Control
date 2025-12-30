@@ -229,18 +229,17 @@ struct DeviceAppsView: View {
     private func appItemRow(for item: AppItem) -> some View {
         let count = appCounter.getCount(for: item.id, deviceUDID: device.udid)
         
-        Button {
-            if device.hasOwner {
-                lockDeviceToApp(item)
-            } else {
-                showOwnerWarning = true
+        TileView(item: item, count: count > 0 ? count : nil)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if device.hasOwner {
+                    lockDeviceToApp(item)
+                } else {
+                    showOwnerWarning = true
+                }
             }
-        } label: {
-            TileView(item: item, count: count > 0 ? count : nil)
-        }
-        .buttonStyle(.plain)
-        .disabled(isLocking || !device.hasOwner)
-        .opacity(device.hasOwner ? 1.0 : 0.6)
+            .allowsHitTesting(!isLocking && device.hasOwner)
+            .opacity(device.hasOwner ? 1.0 : 0.6)
     }
     
     /// Lock device to the selected app

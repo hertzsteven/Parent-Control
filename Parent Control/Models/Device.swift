@@ -65,6 +65,10 @@ struct Device: Identifiable, Codable, Equatable, Hashable {
             return .yellow
         case "cyan":
             return .cyan
+        case "silver", "gray", "grey":
+            return Color(white: 0.7) // Silver/gray color
+        case "black":
+            return .black
         default:
             return .blue
         }
