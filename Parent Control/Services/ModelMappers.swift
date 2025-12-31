@@ -97,6 +97,90 @@ extension AppDTO {
     }
 }
 
+// MARK: - Device App Mapping (from installed apps)
+
+extension DeviceAppDTO {
+    /// Convert device-installed app to AppItem domain model
+    /// - Returns: AppItem for use in the app, or nil if missing required fields
+    func toAppItem() -> AppItem? {
+        guard let bundleId = identifier, let name = name else { return nil }
+        
+        // Generate deterministic UUID from bundleId so it's consistent across app launches
+        let deterministicId = bundleId.deterministicUUID
+        
+        #if DEBUG
+        print("🔑 DeviceApp '\(name)' -> UUID: \(deterministicId.uuidString.prefix(8))... (from bundleId: \(bundleId))")
+        #endif
+        
+        return AppItem(
+            id: deterministicId,
+            title: name,
+            description: "\(vendor ?? "Unknown") - iOS",
+            iconName: mapToIconName(),
+            iconURL: icon,
+            bundleId: bundleId,
+            additionalInfo: buildAdditionalInfo()
+        )
+    }
+    
+    /// Map app name/bundle ID to SF Symbol icon name
+    private func mapToIconName() -> String {
+        let bundleLower = (identifier ?? "").lowercased()
+        let nameLower = (name ?? "").lowercased()
+        
+        switch true {
+        case bundleLower.contains("youtube") || nameLower.contains("youtube"):
+            return "play.rectangle.fill"
+        case bundleLower.contains("safari") || nameLower.contains("safari"):
+            return "safari"
+        case bundleLower.contains("music") || nameLower.contains("music"):
+            return "music.note"
+        case bundleLower.contains("appstore") || bundleLower.contains("app.store"):
+            return "square.stack.fill"
+        case bundleLower.contains("books") || nameLower.contains("books"):
+            return "book.fill"
+        case bundleLower.contains("photos") || nameLower.contains("photos"):
+            return "photo.fill"
+        case bundleLower.contains("mail") || nameLower.contains("mail"):
+            return "envelope.fill"
+        case bundleLower.contains("messages") || nameLower.contains("messages"):
+            return "message.fill"
+        case bundleLower.contains("facetime") || nameLower.contains("facetime"):
+            return "video.fill"
+        case bundleLower.contains("calendar") || nameLower.contains("calendar"):
+            return "calendar"
+        case bundleLower.contains("notes") || nameLower.contains("notes"):
+            return "note.text"
+        case bundleLower.contains("maps") || nameLower.contains("maps"):
+            return "map.fill"
+        case bundleLower.contains("pages"):
+            return "doc.text.fill"
+        case bundleLower.contains("numbers"):
+            return "tablecells.fill"
+        case bundleLower.contains("keynote"):
+            return "keynote"
+        case bundleLower.contains("classroom") || nameLower.contains("classroom"):
+            return "person.3.fill"
+        case bundleLower.contains("student") || nameLower.contains("student"):
+            return "graduationcap.fill"
+        case bundleLower.contains("game") || nameLower.contains("game"):
+            return "gamecontroller.fill"
+        default:
+            return "app.fill"
+        }
+    }
+    
+    /// Build additional info string
+    private func buildAdditionalInfo() -> String {
+        var info = "Bundle ID: \(identifier ?? "Unknown")"
+        info += "\nVendor: \(vendor ?? "Unknown")"
+        if let ver = version {
+            info += "\nVersion: \(ver)"
+        }
+        return info
+    }
+}
+
 // MARK: - Device Mapping
 
 extension DeviceDTO {
@@ -263,6 +347,29 @@ extension Array where Element == DeviceDTO {
     /// - Returns: Array of Device objects
     func toDevices(bundleIdMapping: [String: UUID]) -> [Device] {
         self.map { $0.toDevice(bundleIdMapping: bundleIdMapping) }
+    }
+    
+    /// Extract all apps from device-installed apps, aggregated across all devices
+    /// - Returns: Tuple with array of unique AppItems and bundleId-to-UUID mapping
+    func extractAllApps() -> (items: [AppItem], bundleIdMapping: [String: UUID]) {
+        var items: [AppItem] = []
+        var bundleIdMapping: [String: UUID] = [:]
+        var seenBundleIds = Set<String>()
+        
+        for device in self {
+            for deviceApp in device.apps ?? [] {
+                guard let bundleId = deviceApp.identifier,
+                      !seenBundleIds.contains(bundleId),
+                      let appItem = deviceApp.toAppItem() else { continue }
+                
+                items.append(appItem)
+                bundleIdMapping[bundleId] = appItem.id
+                seenBundleIds.insert(bundleId)
+            }
+        }
+        
+        print("📦 Extracted \(items.count) unique apps from \(self.count) devices")
+        return (items, bundleIdMapping)
     }
 }
 
