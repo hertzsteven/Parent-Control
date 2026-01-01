@@ -146,6 +146,7 @@ struct DeviceAppManagementView: View {
     private var appManagementView: some View {
         if let device = selectedDevice {
             let allApps = viewModel.allAppsForDevice(device)
+                .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
             let validAppIds = Set(allApps.map { $0.id })
             
             ScrollView {

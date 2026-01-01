@@ -60,6 +60,7 @@ struct DeviceAppsView: View {
         }
         .onAppear {
             filteredApps = viewModel.appsForDevice(device)
+                .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
             viewModel.selectDevice(device)
         }
     }
