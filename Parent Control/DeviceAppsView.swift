@@ -24,6 +24,12 @@ struct DeviceAppsView: View {
             VStack(spacing: 0) {
                 navigationBar
 //                deviceHeaderView
+                VersionFourLockActions(
+                    device: device,
+                    apps: filteredApps,
+                    token: { viewModel.authManager?.token },
+                    onOwnerMissing: { showOwnerWarning = true }
+                )
                 appListSection
             }
             
