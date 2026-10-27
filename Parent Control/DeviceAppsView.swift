@@ -156,29 +156,6 @@ struct DeviceAppsView: View {
                     .disabled(isLocking || isUnlocking)
                     .opacity((isLocking || isUnlocking) ? 0.5 : 1.0)
             }
-            
-            Button(action: {
-                if device.hasOwner {
-                    unlockDevice()
-                } else {
-                    showOwnerWarning = true
-                }
-            }) {
-                HStack(spacing: 6) {
-                    Image(systemName: "lock.open.fill")
-                        .font(.subheadline)
-                    Text("Unlock")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                }
-                .foregroundColor(.white)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Color.orange)
-                .cornerRadius(8)
-            }
-            .disabled(isLocking || isUnlocking || !device.hasOwner)
-            .opacity((isLocking || isUnlocking || !device.hasOwner) ? 0.5 : 1.0)
         }
         .navigationBarStyle()
         .padding(.bottom, AppTheme.Spacing.md)
