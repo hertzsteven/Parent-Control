@@ -5,15 +5,23 @@ import Foundation
 /// A newer lock or unlock result invalidates an in-flight profile read.
 struct SingleAppLockStore {
     private(set) var locksByOwnerId: [String: SingleAppLock] = [:]
+    private(set) var queryByOwnerId: [String: SingleAppLockQuery] = [:]
     private var generations: [String: Int] = [:]
 
     func lock(forOwnerId ownerId: String) -> SingleAppLock? {
         locksByOwnerId[ownerId]
     }
 
+    func query(forOwnerId ownerId: String) -> SingleAppLockQuery? {
+        queryByOwnerId[ownerId]
+    }
+
     mutating func beginProfileFetch(ownerId: String) -> Int {
         let next = (generations[ownerId] ?? 0) + 1
         generations[ownerId] = next
+        if queryByOwnerId[ownerId] != .settled {
+            queryByOwnerId[ownerId] = .loading
+        }
         return next
     }
 
@@ -35,16 +43,31 @@ struct SingleAppLockStore {
                 appName: appName(bundleId)
             )
         }
+        queryByOwnerId[ownerId] = .settled
         return true
+    }
+
+    /// A dropped generation belongs to an older read. Leave the newer query alone.
+    mutating func noteProfileFetchFailed(ownerId: String, generation: Int) {
+        guard generations[ownerId] == generation else { return }
+        queryByOwnerId[ownerId] = .failed
+    }
+
+    /// The token never arrived. That is a failed read, not an unlocked device.
+    mutating func noteProfileFetchUnavailable(ownerId: String) {
+        guard queryByOwnerId[ownerId] != .settled else { return }
+        queryByOwnerId[ownerId] = .failed
     }
 
     mutating func noteAppLockApplied(ownerId: String, bundleId: String, appName: String) {
         generations[ownerId] = (generations[ownerId] ?? 0) + 1
         locksByOwnerId[ownerId] = SingleAppLock(bundleId: bundleId, appName: appName)
+        queryByOwnerId[ownerId] = .settled
     }
 
     mutating func noteLessonsStopped(ownerId: String) {
         generations[ownerId] = (generations[ownerId] ?? 0) + 1
         locksByOwnerId[ownerId] = nil
+        queryByOwnerId[ownerId] = .settled
     }
 }

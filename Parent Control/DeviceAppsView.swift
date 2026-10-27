@@ -136,7 +136,15 @@ struct DeviceAppsView: View {
             
             Spacer()
 
-            if viewModel.singleAppLock(for: device) != nil {
+            if viewModel.singleAppLockQuery(for: device) == .loading {
+                ProgressView()
+                    .controlSize(.small)
+                    .accessibilityLabel("Checking lock")
+            } else if viewModel.singleAppLockQuery(for: device) == .failed {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .accessibilityLabel("Lock status unavailable")
+            } else if viewModel.singleAppLock(for: device) != nil {
                 Button(SingleAppLock.unlockButtonTitle, systemImage: "lock.open.fill", action: unlockDevice)
                     .font(.subheadline)
                     .bold()

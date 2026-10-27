@@ -140,6 +140,101 @@ enum SingleAppLockStateTests {
         check("lock icon shows on the locked app card", farmLock.showsLockIcon(on: "com.example.onthefarm"))
         check("lock icon stays off other app cards", !farmLock.showsLockIcon(on: "com.apple.mobilesafari"))
         check("lock icon stays off an app with no bundle id", !farmLock.showsLockIcon(on: nil))
+        check("a finished profile read is settled", store.query(forOwnerId: "143") == .settled)
+
+        let firstLaunch = store.beginProfileFetch(ownerId: "190")
+        let secondLaunch = store.beginProfileFetch(ownerId: "190")
+        let droppedLaunch = store.replaceFromProfile(
+            ownerId: "190",
+            bundleIds: ["com.example.onthefarm"],
+            generation: firstLaunch,
+            appName: { _ in "On The Farm" }
+        )
+        check("an older launch read is not applied", droppedLaunch == false)
+        check("a dropped launch read stays loading", store.query(forOwnerId: "190") == .loading)
+        check("a dropped launch read does not settle as unlocked", store.lock(forOwnerId: "190") == nil)
+        let newerLaunch = store.replaceFromProfile(
+            ownerId: "190",
+            bundleIds: ["com.example.onthefarm"],
+            generation: secondLaunch,
+            appName: { _ in "On The Farm" }
+        )
+        check(
+            "the newer launch read settles the lock",
+            newerLaunch
+                && store.lock(forOwnerId: "190") == SingleAppLock(bundleId: "com.example.onthefarm", appName: "On The Farm")
+                && store.query(forOwnerId: "190") == .settled
+        )
+
+        let failedGeneration = store.beginProfileFetch(ownerId: "203")
+        store.noteProfileFetchFailed(ownerId: "203", generation: failedGeneration)
+        check("a failed profile read is not settled unlocked", store.query(forOwnerId: "203") == .failed)
+        check("a failed profile read leaves no lock", store.lock(forOwnerId: "203") == nil)
+        let staleFailure = store.beginProfileFetch(ownerId: "190")
+        store.noteAppLockApplied(ownerId: "190", bundleId: "com.example.onthefarm", appName: "On The Farm")
+        store.noteProfileFetchFailed(ownerId: "190", generation: staleFailure)
+        check("a stale failure does not clear a newer lock", store.query(forOwnerId: "190") == .settled)
+        check("a stale failure keeps the newer lock", store.lock(forOwnerId: "190")?.bundleId == "com.example.onthefarm")
+
+        store.noteProfileFetchUnavailable(ownerId: "204")
+        check("a missing token is failed, not unlocked", store.query(forOwnerId: "204") == .failed)
+        check("a missing token does not settle an empty lock", store.lock(forOwnerId: "204") == nil)
+        store.noteProfileFetchUnavailable(ownerId: "190")
+        check("a missing token does not unset a settled lock", store.query(forOwnerId: "190") == .settled)
+
+        check("a blank token waits", SingleAppLockTokenReadiness.decide(token: nil, attempt: 0, maxAttempts: 2) == .wait)
+        check("an empty token waits", SingleAppLockTokenReadiness.decide(token: "  ", attempt: 0, maxAttempts: 2) == .wait)
+        check("a present token is ready immediately", SingleAppLockTokenReadiness.decide(token: "abc", attempt: 0, maxAttempts: 2) == .ready("abc"))
+        check("a token that arrives later is ready", SingleAppLockTokenReadiness.decide(token: "abc", attempt: 2, maxAttempts: 2) == .ready("abc"))
+        check("a token that never arrives is unavailable", SingleAppLockTokenReadiness.decide(token: nil, attempt: 2, maxAttempts: 2) == .unavailable)
+
+        var startup = SingleAppLockStore()
+        let startupGeneration = startup.beginProfileFetch(ownerId: "190")
+        let startupApplied = startup.replaceFromProfile(
+            ownerId: "190",
+            bundleIds: ["com.example.onthefarm"],
+            generation: startupGeneration,
+            appName: { _ in "On The Farm" }
+        )
+        let startupLock = startup.lock(forOwnerId: "190")
+        check(
+            "a launch read of one app puts the lock icon on that card",
+            startupApplied
+                && startup.query(forOwnerId: "190") == .settled
+                && startupLock?.showsLockIcon(on: "com.example.onthefarm") == true
+        )
+        check(
+            "a launch read does not put the lock icon on other cards",
+            startupLock?.showsLockIcon(on: "com.apple.mobilesafari") != true
+        )
+
+        let unlockedGeneration = startup.beginProfileFetch(ownerId: "191")
+        let unlockedApplied = startup.replaceFromProfile(
+            ownerId: "191",
+            bundleIds: [],
+            generation: unlockedGeneration,
+            appName: { $0 }
+        )
+        check(
+            "an unlocked device does not show a lock at launch",
+            unlockedApplied
+                && startup.query(forOwnerId: "191") == .settled
+                && startup.lock(forOwnerId: "191") == nil
+        )
+
+        let pairingGeneration = startup.beginProfileFetch(ownerId: "192")
+        let pairingApplied = startup.replaceFromProfile(
+            ownerId: "192",
+            bundleIds: ["com.apple.AppStore", "com.apple.camera"],
+            generation: pairingGeneration,
+            appName: { $0 }
+        )
+        check(
+            "a device that is not locked to one app does not show a lock",
+            pairingApplied
+                && startup.query(forOwnerId: "192") == .settled
+                && startup.lock(forOwnerId: "192") == nil
+        )
 
         if !failures.isEmpty {
             print("\(failures.count) failed")
