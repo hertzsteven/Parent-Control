@@ -134,6 +134,13 @@ enum SingleAppLockStateTests {
         )
         check("the open-screen profile read can show one app", applied && store.lock(forOwnerId: "143") == SingleAppLock(bundleId: "com.apple.mobilesafari", appName: "Safari"))
 
+        let farmLock = SingleAppLock(bundleId: "com.example.onthefarm", appName: "On The Farm")
+        check("blue unlock button title is Unlock", SingleAppLock.unlockButtonTitle == "Unlock")
+        check("blue unlock button title does not include the app name", !SingleAppLock.unlockButtonTitle.contains(farmLock.appName))
+        check("lock icon shows on the locked app card", farmLock.showsLockIcon(on: "com.example.onthefarm"))
+        check("lock icon stays off other app cards", !farmLock.showsLockIcon(on: "com.apple.mobilesafari"))
+        check("lock icon stays off an app with no bundle id", !farmLock.showsLockIcon(on: nil))
+
         if !failures.isEmpty {
             print("\(failures.count) failed")
             exit(1)

@@ -136,8 +136,8 @@ struct DeviceAppsView: View {
             
             Spacer()
 
-            if let lock = viewModel.singleAppLock(for: device) {
-                Button("Unlock \(lock.appName)", systemImage: "lock.open.fill", action: unlockDevice)
+            if viewModel.singleAppLock(for: device) != nil {
+                Button(SingleAppLock.unlockButtonTitle, systemImage: "lock.open.fill", action: unlockDevice)
                     .font(.subheadline)
                     .bold()
                     .foregroundStyle(.white)
@@ -246,7 +246,9 @@ struct DeviceAppsView: View {
     private func appItemRow(for item: AppItem) -> some View {
         let count = appCounter.getCount(for: item.id, deviceUDID: device.udid)
         
-        TileView(item: item, count: count > 0 ? count : nil)
+        let showsLockIcon = viewModel.singleAppLock(for: device)?.showsLockIcon(on: item.bundleId) ?? false
+
+        TileView(item: item, count: count > 0 ? count : nil, showsLockIcon: showsLockIcon)
             .contentShape(Rectangle())
             .onTapGesture {
                 if device.hasOwner {

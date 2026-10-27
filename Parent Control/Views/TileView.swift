@@ -11,10 +11,12 @@ import SwiftUI
 struct TileView: View {
     let item: AppItem
     let count: Int?
+    let showsLockIcon: Bool
     
-    init(item: AppItem, count: Int? = nil) {
+    init(item: AppItem, count: Int? = nil, showsLockIcon: Bool = false) {
         self.item = item
         self.count = count
+        self.showsLockIcon = showsLockIcon
     }
     
     var body: some View {
@@ -49,6 +51,16 @@ struct TileView: View {
                     .clipShape(Capsule())
                     .padding(.top, AppTheme.Spacing.sm)
                     .padding(.trailing, AppTheme.Spacing.sm)
+            }
+        }
+        .overlay(alignment: .topLeading) {
+            if showsLockIcon {
+                Image(systemName: "lock.fill")
+                    .font(.caption)
+                    .bold()
+                    .foregroundStyle(AppTheme.Colors.primary)
+                    .padding(AppTheme.Spacing.sm)
+                    .accessibilityLabel("Locked")
             }
         }
         .cardStyle()
