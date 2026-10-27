@@ -15,8 +15,17 @@ struct DeviceAppsView: View {
     @State private var alertTitle: String = ""
     @State private var alertMessage: String = ""
     @State private var showOwnerWarning: Bool = false
-    /// Answer from the startup `GET /teacher/profiles` read. The screen stays covered until this is set.
+    /// Answer from the startup `GET /teacher/profiles` read. Nil until that read returns a status.
     @State private var startupLock: TeacherProfileLockStatus?
+    /// Eight startup tries failed. The checking cover is down and Try again is available.
+    @State private var startupLockCouldNotBeChecked = false
+    /// Bumped by Try again so the startup task runs a fresh set of tries.
+    @State private var startupLockCycle = 0
+
+    /// True only while the checking cover is on screen.
+    private var isStartupLockCoverVisible: Bool {
+        device.hasOwner && startupLock == nil && !startupLockCouldNotBeChecked
+    }
     
     var body: some View {
         ZStack {
@@ -30,6 +39,8 @@ struct DeviceAppsView: View {
                 // Waiting is what makes that answer visible. The Check lock button is unchanged.
                 if let startupLock {
                     StartupLockAnswerView(status: startupLock)
+                } else if device.hasOwner && startupLockCouldNotBeChecked {
+                    StartupLockCheckFailedView(onTryAgain: retryStartupLockCheck)
                 }
                 VersionFourLockActions(
                     device: device,
@@ -37,6 +48,7 @@ struct DeviceAppsView: View {
                     token: { viewModel.authManager?.token },
                     onOwnerMissing: { showOwnerWarning = true }
                 )
+                .accessibilityHidden(isStartupLockCoverVisible)
                 appListSection
             }
             
@@ -62,12 +74,12 @@ struct DeviceAppsView: View {
             // before the rest of this screen continues. Not because of a hang concern:
             // the result may take a moment and may show the device is locked. If startup
             // did not wait, that locked state would be missed. The wait is what makes
-            // the correct answer visible. A failed read is retried until an answer arrives.
-            if device.hasOwner && startupLock == nil {
+            // the correct answer visible. Eight failed tries take this cover down.
+            if isStartupLockCoverVisible {
                 StartupLockGateView()
             }
         }
-        .task(id: device.ownerId) {
+        .task(id: StartupLockTaskID(ownerId: device.ownerId, cycle: startupLockCycle)) {
             await waitForStartupLock()
         }
         .navigationDestination(for: AppItem.self) { item in
@@ -91,19 +103,28 @@ struct DeviceAppsView: View {
     }
 
     /// Blocks the rest of the device screen on the version 4 lock check.
-    /// Retries until `currentLock` returns, so a lock that arrives a moment later is not missed.
+    /// A lock that arrives a moment later is still shown. Eight missed tries stop the cover.
     private func waitForStartupLock() async {
         guard device.hasOwner, let ownerId = device.ownerId else { return }
+        startupLockCouldNotBeChecked = false
         let startup = TeacherProfileLockStartup()
         do {
-            startupLock = try await startup.waitUntilAnswer(ownerId: ownerId) {
+            let status = try await startup.waitUntilAnswer(ownerId: ownerId) {
                 viewModel.authManager?.token
             }
+            guard !Task.isCancelled else { return }
+            startupLock = status
         } catch is CancellationError {
             return
         } catch {
-            return
+            guard !Task.isCancelled else { return }
+            startupLockCouldNotBeChecked = true
         }
+    }
+
+    private func retryStartupLockCheck() {
+        startupLockCouldNotBeChecked = false
+        startupLockCycle += 1
     }
     
     // MARK: - View Components
@@ -196,6 +217,7 @@ struct DeviceAppsView: View {
             }
             .disabled(isLocking || isUnlocking || !device.hasOwner)
             .opacity((isLocking || isUnlocking || !device.hasOwner) ? 0.5 : 1.0)
+            .accessibilityHidden(isStartupLockCoverVisible)
         }
         .navigationBarStyle()
         .padding(.bottom, AppTheme.Spacing.md)
@@ -282,6 +304,7 @@ struct DeviceAppsView: View {
             }
             .allowsHitTesting(!isLocking && device.hasOwner)
             .opacity(device.hasOwner ? 1.0 : 0.6)
+            .accessibilityHidden(isStartupLockCoverVisible)
     }
     
     /// Lock device to the selected app
@@ -357,6 +380,11 @@ struct DeviceAppsView: View {
             Spacer()
         }
         .padding(AppTheme.Spacing.lg)
+    }
+
+    private struct StartupLockTaskID: Equatable {
+        let ownerId: String?
+        let cycle: Int
     }
 }
 
