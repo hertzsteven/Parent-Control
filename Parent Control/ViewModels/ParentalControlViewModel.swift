@@ -51,6 +51,11 @@ final class ParentalControlViewModel {
     
     /// Device app preferences for managing hidden apps
     let appPreferences: DeviceAppPreferences
+
+    /// Single-app locks keyed by owner id. Drives the named unlock button.
+    var singleAppLocksByOwnerId: [String: SingleAppLock] = [:]
+
+    private var singleAppLockStore = SingleAppLockStore()
     
     // MARK: - Initialization
     
@@ -273,6 +278,9 @@ final class ParentalControlViewModel {
             if let tasks = unlockResponse.tasks, !tasks.isEmpty {
                 print("📄 Removed \(tasks.count) existing lock(s)")
             }
+            if unlockResponse.success != false {
+                recordLessonsStopped(ownerId: userId)
+            }
             
             // STEP 2: Apply App Lock
             print("\n📍 STEP 2: Applying App Lock")
@@ -292,6 +300,9 @@ final class ParentalControlViewModel {
             print("\n✅ App Lock Applied Successfully!")
             if let message = lockResponse.message {
                 print("📄 Response: \(message)")
+            }
+            if lockResponse.success != false {
+                recordAppLockApplied(ownerId: userId, bundleId: bundleId, appName: app.title)
             }
             print(String(repeating: "=", count: 80) + "\n")
             
@@ -360,6 +371,10 @@ final class ParentalControlViewModel {
                 print("📄 No active locks found (device was already unlocked)")
             }
             print(String(repeating: "=", count: 80) + "\n")
+
+            if unlockResponse.success != false {
+                recordLessonsStopped(ownerId: userId)
+            }
             
             let successMessage = "\(device.name)  unlocked"
             return .success(successMessage)
@@ -378,6 +393,58 @@ final class ParentalControlViewModel {
         }
     }
     
+    // MARK: - Single-app lock
+
+    /// The app this device's owner is locked to, when that lock is exactly one app.
+    func singleAppLock(for device: Device) -> SingleAppLock? {
+        guard let ownerId = device.ownerId else { return nil }
+        return singleAppLocksByOwnerId[ownerId]
+    }
+
+    /// One sanity read of GET /teacher/profiles when the teacher screen opens.
+    /// Lock and unlock results update `singleAppLocksByOwnerId` themselves.
+    func loadSingleAppLock(for device: Device) async {
+        guard let ownerId = device.ownerId else { return }
+        guard let token = authManager?.token, !token.isEmpty else { return }
+
+        let generation = beginProfileFetch(ownerId: ownerId)
+        do {
+            let profiles = try await networkService.fetchTeacherProfiles(scopeId: ownerId, token: token)
+            let bundleIds = TeacherStudentProfile.bundleIds(forOwnerId: ownerId, in: profiles)
+            let apps = appsForDevice(device) + appItems
+            let applied = singleAppLockStore.replaceFromProfile(
+                ownerId: ownerId,
+                bundleIds: bundleIds,
+                generation: generation
+            ) { bundleId in
+                AppNameMatcher.name(forBundleId: bundleId, apps: apps)
+            }
+            if applied {
+                publishSingleAppLocks()
+            }
+        } catch {
+            print("Single-app lock check failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func beginProfileFetch(ownerId: String) -> Int {
+        singleAppLockStore.beginProfileFetch(ownerId: ownerId)
+    }
+
+    private func recordAppLockApplied(ownerId: String, bundleId: String, appName: String) {
+        singleAppLockStore.noteAppLockApplied(ownerId: ownerId, bundleId: bundleId, appName: appName)
+        publishSingleAppLocks()
+    }
+
+    private func recordLessonsStopped(ownerId: String) {
+        singleAppLockStore.noteLessonsStopped(ownerId: ownerId)
+        publishSingleAppLocks()
+    }
+
+    private func publishSingleAppLocks() {
+        singleAppLocksByOwnerId = singleAppLockStore.locksByOwnerId
+    }
+
     // MARK: - Network Operations
     
     /// Load data from Zuludesk API

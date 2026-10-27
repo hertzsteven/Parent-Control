@@ -63,6 +63,9 @@ struct DeviceAppsView: View {
                 .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
             viewModel.selectDevice(device)
         }
+        .task(id: device.ownerId) {
+            await viewModel.loadSingleAppLock(for: device)
+        }
     }
     
     // MARK: - View Components
@@ -132,6 +135,19 @@ struct DeviceAppsView: View {
             }
             
             Spacer()
+
+            if let lock = viewModel.singleAppLock(for: device) {
+                Button("Unlock \(lock.appName)", systemImage: "lock.open.fill", action: unlockDevice)
+                    .font(.subheadline)
+                    .bold()
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.blue)
+                    .clipShape(.rect(cornerRadius: 8))
+                    .disabled(isLocking || isUnlocking)
+                    .opacity((isLocking || isUnlocking) ? 0.5 : 1.0)
+            }
             
             Button(action: {
                 if device.hasOwner {

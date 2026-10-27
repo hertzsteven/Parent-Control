@@ -218,6 +218,28 @@ final class NetworkService {
         
         return response
     }
+
+    /// Current teacher restrictions for one student.
+    /// - Parameters:
+    ///   - scopeId: Student id, which this app stores as the device owner id.
+    ///   - token: Teacher API token.
+    /// - Returns: Profiles for that student. An empty whitelist means no app lock.
+    func fetchTeacherProfiles(scopeId: String, token: String) async throws -> [TeacherStudentProfile] {
+        var components = URLComponents()
+        components.queryItems = [
+            URLQueryItem(name: "token", value: token),
+            URLQueryItem(name: "scope", value: "student"),
+            URLQueryItem(name: "scopeId", value: scopeId)
+        ]
+        let query = components.percentEncodedQuery ?? ""
+        let endpoint = "/teacher/profiles?\(query)"
+        return try await request(
+            endpoint: endpoint,
+            method: "GET",
+            protocolVersion: "4",
+            additionalHeaders: ["Cookie": "hash=c683a60c07d2f6e4b1fd4e385d034954"]
+        )
+    }
     
     /// Authenticate teacher and retrieve API token
     /// - Parameters:
