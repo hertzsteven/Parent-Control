@@ -51,6 +51,14 @@ final class ParentalControlViewModel {
     
     /// Device app preferences for managing hidden apps
     let appPreferences: DeviceAppPreferences
+
+    /// Single-app locks keyed by owner id. Drives the named unlock button.
+    var singleAppLocksByOwnerId: [String: SingleAppLock] = [:]
+
+    /// Profile-read progress keyed by owner id. Empty means the launch read has not finished.
+    var singleAppLockQueryByOwnerId: [String: SingleAppLockQuery] = [:]
+
+    private var singleAppLockStore = SingleAppLockStore()
     
     // MARK: - Initialization
     
@@ -273,6 +281,9 @@ final class ParentalControlViewModel {
             if let tasks = unlockResponse.tasks, !tasks.isEmpty {
                 print("📄 Removed \(tasks.count) existing lock(s)")
             }
+            if unlockResponse.success != false {
+                await recordLessonsStopped(ownerId: userId)
+            }
             
             // STEP 2: Apply App Lock
             print("\n📍 STEP 2: Applying App Lock")
@@ -292,6 +303,9 @@ final class ParentalControlViewModel {
             print("\n✅ App Lock Applied Successfully!")
             if let message = lockResponse.message {
                 print("📄 Response: \(message)")
+            }
+            if lockResponse.success != false {
+                await recordAppLockApplied(ownerId: userId, bundleId: bundleId, appName: app.title)
             }
             print(String(repeating: "=", count: 80) + "\n")
             
@@ -360,6 +374,10 @@ final class ParentalControlViewModel {
                 print("📄 No active locks found (device was already unlocked)")
             }
             print(String(repeating: "=", count: 80) + "\n")
+
+            if unlockResponse.success != false {
+                await recordLessonsStopped(ownerId: userId)
+            }
             
             let successMessage = "\(device.name)  unlocked"
             return .success(successMessage)
@@ -378,6 +396,107 @@ final class ParentalControlViewModel {
         }
     }
     
+    // MARK: - Single-app lock
+
+    /// The app this device's owner is locked to, when that lock is exactly one app.
+    func singleAppLock(for device: Device) -> SingleAppLock? {
+        guard let ownerId = device.ownerId else { return nil }
+        return singleAppLocksByOwnerId[ownerId]
+    }
+
+    /// `.settled` is the only state that means "not locked" when the map has no entry.
+    func singleAppLockQuery(for device: Device) -> SingleAppLockQuery {
+        guard let ownerId = device.ownerId else { return .settled }
+        return singleAppLockQueryByOwnerId[ownerId] ?? .loading
+    }
+
+    /// One sanity read of GET /teacher/profiles.
+    /// Lock and unlock results update `singleAppLocksByOwnerId` themselves.
+    @MainActor
+    func loadSingleAppLock(for device: Device) async {
+        guard let ownerId = device.ownerId else { return }
+        await loadSingleAppLock(ownerId: ownerId)
+    }
+
+    /// Launch read for every loaded device. Runs even when device data is already cached.
+    @MainActor
+    private func loadSingleAppLocksForLoadedDevices() async {
+        let ownerIds = Set(devices.compactMap(\.ownerId))
+        for ownerId in ownerIds {
+            await loadSingleAppLock(ownerId: ownerId)
+        }
+    }
+
+    @MainActor
+    private func loadSingleAppLock(ownerId: String) async {
+        let maxAttempts = 30
+        var resolvedToken: String?
+        for attempt in 0...maxAttempts {
+            switch SingleAppLockTokenReadiness.decide(
+                token: authManager?.token,
+                attempt: attempt,
+                maxAttempts: maxAttempts
+            ) {
+            case .ready(let token):
+                resolvedToken = token
+            case .wait:
+                try? await Task.sleep(for: .milliseconds(100))
+            case .unavailable:
+                singleAppLockStore.noteProfileFetchUnavailable(ownerId: ownerId)
+                publishSingleAppLocks()
+                return
+            }
+            if resolvedToken != nil {
+                break
+            }
+        }
+        guard let token = resolvedToken else { return }
+
+        let generation = beginProfileFetch(ownerId: ownerId)
+        publishSingleAppLocks()
+        do {
+            let profiles = try await networkService.fetchTeacherProfiles(scopeId: ownerId, token: token)
+            let bundleIds = TeacherStudentProfile.bundleIds(forOwnerId: ownerId, in: profiles)
+            let applied = singleAppLockStore.replaceFromProfile(
+                ownerId: ownerId,
+                bundleIds: bundleIds,
+                generation: generation
+            ) { bundleId in
+                AppNameMatcher.name(forBundleId: bundleId, apps: appItems)
+            }
+            guard applied else { return }
+            publishSingleAppLocks()
+        } catch is CancellationError {
+            return
+        } catch {
+            print("Single-app lock check failed: \(error.localizedDescription)")
+            singleAppLockStore.noteProfileFetchFailed(ownerId: ownerId, generation: generation)
+            publishSingleAppLocks()
+        }
+    }
+
+    private func beginProfileFetch(ownerId: String) -> Int {
+        singleAppLockStore.beginProfileFetch(ownerId: ownerId)
+    }
+
+    @MainActor
+    private func recordAppLockApplied(ownerId: String, bundleId: String, appName: String) {
+        singleAppLockStore.noteAppLockApplied(ownerId: ownerId, bundleId: bundleId, appName: appName)
+        publishSingleAppLocks()
+    }
+
+    @MainActor
+    private func recordLessonsStopped(ownerId: String) {
+        singleAppLockStore.noteLessonsStopped(ownerId: ownerId)
+        publishSingleAppLocks()
+    }
+
+    @MainActor
+    private func publishSingleAppLocks() {
+        singleAppLocksByOwnerId = singleAppLockStore.locksByOwnerId
+        singleAppLockQueryByOwnerId = singleAppLockStore.queryByOwnerId
+    }
+
     // MARK: - Network Operations
     
     /// Load data from Zuludesk API
@@ -386,7 +505,8 @@ final class ParentalControlViewModel {
     func loadData() async {
         // Skip if data already loaded
         if hasLoadedData && !devices.isEmpty {
-            print("📦 Using cached data - skipping API reload")
+            print("📦 Using cached data - refreshing lock status")
+            await loadSingleAppLocksForLoadedDevices()
             return
         }
         
@@ -541,6 +661,7 @@ final class ParentalControlViewModel {
             
             // Set flag to prevent reloading
             hasLoadedData = true
+            await loadSingleAppLocksForLoadedDevices()
             
             print("\n✅ Successfully loaded \(fetchedApps.count) apps and \(fetchedDevices.count) devices from API\n")
             

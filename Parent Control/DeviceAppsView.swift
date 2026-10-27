@@ -63,6 +63,9 @@ struct DeviceAppsView: View {
                 .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
             viewModel.selectDevice(device)
         }
+        .task(id: device.ownerId) {
+            await viewModel.loadSingleAppLock(for: device)
+        }
     }
     
     // MARK: - View Components
@@ -132,29 +135,27 @@ struct DeviceAppsView: View {
             }
             
             Spacer()
-            
-            Button(action: {
-                if device.hasOwner {
-                    unlockDevice()
-                } else {
-                    showOwnerWarning = true
-                }
-            }) {
-                HStack(spacing: 6) {
-                    Image(systemName: "lock.open.fill")
-                        .font(.subheadline)
-                    Text("Unlock")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                }
-                .foregroundColor(.white)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Color.orange)
-                .cornerRadius(8)
+
+            if viewModel.singleAppLockQuery(for: device) == .loading {
+                ProgressView()
+                    .controlSize(.small)
+                    .accessibilityLabel("Checking lock")
+            } else if viewModel.singleAppLockQuery(for: device) == .failed {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .accessibilityLabel("Lock status unavailable")
+            } else if viewModel.singleAppLock(for: device) != nil {
+                Button(SingleAppLock.unlockButtonTitle, systemImage: "lock.open.fill", action: unlockDevice)
+                    .font(.subheadline)
+                    .bold()
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.blue)
+                    .clipShape(.rect(cornerRadius: 8))
+                    .disabled(isLocking || isUnlocking)
+                    .opacity((isLocking || isUnlocking) ? 0.5 : 1.0)
             }
-            .disabled(isLocking || isUnlocking || !device.hasOwner)
-            .opacity((isLocking || isUnlocking || !device.hasOwner) ? 0.5 : 1.0)
         }
         .navigationBarStyle()
         .padding(.bottom, AppTheme.Spacing.md)
@@ -230,7 +231,9 @@ struct DeviceAppsView: View {
     private func appItemRow(for item: AppItem) -> some View {
         let count = appCounter.getCount(for: item.id, deviceUDID: device.udid)
         
-        TileView(item: item, count: count > 0 ? count : nil)
+        let showsLockIcon = viewModel.singleAppLock(for: device)?.showsLockIcon(on: item.bundleId) ?? false
+
+        TileView(item: item, count: count > 0 ? count : nil, showsLockIcon: showsLockIcon)
             .contentShape(Rectangle())
             .onTapGesture {
                 if device.hasOwner {
