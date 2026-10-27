@@ -15,6 +15,8 @@ struct DeviceAppsView: View {
     @State private var alertTitle: String = ""
     @State private var alertMessage: String = ""
     @State private var showOwnerWarning: Bool = false
+    /// Answer from the startup `GET /teacher/profiles` read. The screen stays covered until this is set.
+    @State private var startupLock: TeacherProfileLockStatus?
     
     var body: some View {
         ZStack {
@@ -24,6 +26,11 @@ struct DeviceAppsView: View {
             VStack(spacing: 0) {
                 navigationBar
 //                deviceHeaderView
+                // The startup read may take a moment and may show this device is locked.
+                // Waiting is what makes that answer visible. The Check lock button is unchanged.
+                if let startupLock {
+                    StartupLockAnswerView(status: startupLock)
+                }
                 VersionFourLockActions(
                     device: device,
                     apps: filteredApps,
@@ -50,6 +57,18 @@ struct DeviceAppsView: View {
                 .background(Color.gray.opacity(0.9))
                 .cornerRadius(16)
             }
+
+            // Startup waits for TeacherProfileLockClient.currentLock (GET /teacher/profiles)
+            // before the rest of this screen continues. Not because of a hang concern:
+            // the result may take a moment and may show the device is locked. If startup
+            // did not wait, that locked state would be missed. The wait is what makes
+            // the correct answer visible. A failed read is retried until an answer arrives.
+            if device.hasOwner && startupLock == nil {
+                StartupLockGateView()
+            }
+        }
+        .task(id: device.ownerId) {
+            await waitForStartupLock()
         }
         .navigationDestination(for: AppItem.self) { item in
             DetailView(item: item)
@@ -68,6 +87,22 @@ struct DeviceAppsView: View {
             filteredApps = viewModel.appsForDevice(device)
                 .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
             viewModel.selectDevice(device)
+        }
+    }
+
+    /// Blocks the rest of the device screen on the version 4 lock check.
+    /// Retries until `currentLock` returns, so a lock that arrives a moment later is not missed.
+    private func waitForStartupLock() async {
+        guard device.hasOwner, let ownerId = device.ownerId else { return }
+        let startup = TeacherProfileLockStartup()
+        do {
+            startupLock = try await startup.waitUntilAnswer(ownerId: ownerId) {
+                viewModel.authManager?.token
+            }
+        } catch is CancellationError {
+            return
+        } catch {
+            return
         }
     }
     
