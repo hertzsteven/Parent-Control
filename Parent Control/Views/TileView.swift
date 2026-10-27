@@ -53,7 +53,7 @@ struct TileView: View {
                     .padding(.trailing, AppTheme.Spacing.sm)
             }
         }
-        .overlay(alignment: .topLeading) {
+        .overlay(alignment: .bottomTrailing) {
             if showsLockIcon {
                 Image(systemName: "lock.fill")
                     .font(.caption)
