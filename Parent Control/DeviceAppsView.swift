@@ -9,22 +9,46 @@ struct DeviceAppsView: View {
     @ObservedObject private var appCounter = AppSelectionCounter.shared
     
     @State private var filteredApps: [AppItem] = []
-    @State private var isLocking: Bool = false
+    /// The card being locked right now. It shows a Locking… spinner.
+    @State private var lockingAppId: AppItem.ID?
     @State private var isUnlocking: Bool = false
+    /// Bumped after each lock or unlock that worked, to play a success haptic.
+    @State private var successFeedback = 0
     @State private var showAlert: Bool = false
-    @State private var alertTitle: String = ""
     @State private var alertMessage: String = ""
     @State private var showOwnerWarning: Bool = false
-    /// Answer from the startup `GET /teacher/profiles` read. Nil until that read returns a status.
-    @State private var startupLock: TeacherProfileLockStatus?
-    /// Eight startup tries failed. The checking cover is down and Try again is available.
-    @State private var startupLockCouldNotBeChecked = false
+    /// False while the startup `GET /teacher/profiles` read is still trying. Drives the checking cover.
+    @State private var isStartupCheckDone = false
     /// Bumped by Try again so the startup task runs a fresh set of tries.
     @State private var startupLockCycle = 0
+    /// Bundle ids the device is locked into. Drives the Locked badge on each card.
+    @State private var lockedBundleIds: Set<String> = []
+    /// False when the last check could not reach Jamf, so the lock state is not certain.
+    @State private var isLockStateKnown = false
+    /// Bumped on every lock-state write so an older recheck reply cannot overwrite a newer answer.
+    @State private var lockStateVersion = 0
+    @Environment(\.scenePhase) private var scenePhase
+
+    private var isLocking: Bool {
+        lockingAppId != nil
+    }
 
     /// True only while the checking cover is on screen.
     private var isStartupLockCoverVisible: Bool {
-        device.hasOwner && startupLock == nil && !startupLockCouldNotBeChecked
+        device.hasOwner && !isStartupCheckDone
+    }
+
+    /// Locked into an app that has no card on this screen.
+    private var isLockedToHiddenApp: Bool {
+        !lockedBundleIds.isEmpty && !filteredApps.contains { app in
+            app.bundleId.map(lockedBundleIds.contains) ?? false
+        }
+    }
+
+    /// Unlock only makes sense when something is locked, or when the lock state is not certain.
+    private var canUnlock: Bool {
+        device.hasOwner && !isLocking && !isUnlocking
+            && (!isLockStateKnown || !lockedBundleIds.isEmpty)
     }
     
     var body: some View {
@@ -34,42 +58,12 @@ struct DeviceAppsView: View {
             
             VStack(spacing: 0) {
                 navigationBar
-//                deviceHeaderView
-                // The startup read may take a moment and may show this device is locked.
-                // Waiting is what makes that answer visible. The Check lock button is unchanged.
-                if let startupLock {
-                    StartupLockAnswerView(status: startupLock)
-                } else if device.hasOwner && startupLockCouldNotBeChecked {
+                if device.hasOwner && isStartupCheckDone && !isLockStateKnown {
                     StartupLockCheckFailedView(onTryAgain: retryStartupLockCheck)
                 }
-                VersionFourLockActions(
-                    device: device,
-                    apps: filteredApps,
-                    token: { viewModel.authManager?.token },
-                    onOwnerMissing: { showOwnerWarning = true }
-                )
-                .accessibilityHidden(isStartupLockCoverVisible)
                 appListSection
             }
             
-            // Loading overlay
-            if isLocking || isUnlocking {
-                Color.black.opacity(0.4)
-                    .ignoresSafeArea()
-                
-                VStack(spacing: 20) {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                    Text(isUnlocking ? "Unlocking device..." : "Preparing device lock...")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                }
-                .padding(40)
-                .background(Color.gray.opacity(0.9))
-                .cornerRadius(16)
-            }
-
             // Startup waits for TeacherProfileLockClient.currentLock (GET /teacher/profiles)
             // before the rest of this screen continues. Not because of a hang concern:
             // the result may take a moment and may show the device is locked. If startup
@@ -82,10 +76,8 @@ struct DeviceAppsView: View {
         .task(id: StartupLockTaskID(ownerId: device.ownerId, cycle: startupLockCycle)) {
             await waitForStartupLock()
         }
-        .navigationDestination(for: AppItem.self) { item in
-            DetailView(item: item)
-        }
-        .alert(alertTitle, isPresented: $showAlert) {
+        .sensoryFeedback(.success, trigger: successFeedback)
+        .alert("Error", isPresented: $showAlert) {
             Button("OK", role: .cancel) { }
         } message: {
             Text(alertMessage)
@@ -100,31 +92,77 @@ struct DeviceAppsView: View {
                 .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
             viewModel.selectDevice(device)
         }
+        .onChange(of: scenePhase) { _, phase in
+            // The lock may have cleared itself or been changed in Jamf while the app was away.
+            if phase == .active {
+                Task { await recheckLock() }
+            }
+        }
     }
 
     /// Blocks the rest of the device screen on the version 4 lock check.
     /// A lock that arrives a moment later is still shown. Eight missed tries stop the cover.
     private func waitForStartupLock() async {
         guard device.hasOwner, let ownerId = device.ownerId else { return }
-        startupLockCouldNotBeChecked = false
+        isStartupCheckDone = false
         let startup = TeacherProfileLockStartup()
         do {
             let status = try await startup.waitUntilAnswer(ownerId: ownerId) {
                 viewModel.authManager?.token
             }
             guard !Task.isCancelled else { return }
-            startupLock = status
+            // No animation: the lock was already in place when the screen opened.
+            recordLockState(Self.bundleIds(lockedIn: status))
         } catch is CancellationError {
             return
         } catch {
             guard !Task.isCancelled else { return }
-            startupLockCouldNotBeChecked = true
+            isLockStateKnown = false
         }
+        isStartupCheckDone = true
     }
 
     private func retryStartupLockCheck() {
-        startupLockCouldNotBeChecked = false
+        isStartupCheckDone = false
         startupLockCycle += 1
+    }
+
+    /// One quiet lock read with no cover. Runs on return to the foreground, on pull to refresh,
+    /// and after a failed tile lock (its unlock step may already have cleared the old lock).
+    private func recheckLock() async {
+        guard device.hasOwner, let ownerId = device.ownerId, isStartupCheckDone else { return }
+        let version = lockStateVersion
+        let check = TeacherProfileLockStartup(attemptLimit: 1)
+        do {
+            let status = try await check.waitUntilAnswer(ownerId: ownerId) {
+                viewModel.authManager?.token
+            }
+            // A lock or unlock that finished while this read was out is newer than this reply.
+            guard version == lockStateVersion else { return }
+            withAnimation(.easeInOut(duration: 0.25)) {
+                recordLockState(Self.bundleIds(lockedIn: status))
+            }
+        } catch is CancellationError {
+            return
+        } catch {
+            guard version == lockStateVersion else { return }
+            // Keep the badges, but let Unlock work since the state is no longer certain.
+            isLockStateKnown = false
+        }
+    }
+
+    /// Records a confirmed lock state. An empty set means nothing is locked.
+    private func recordLockState(_ bundleIds: Set<String>) {
+        lockStateVersion += 1
+        lockedBundleIds = bundleIds
+        isLockStateKnown = true
+    }
+
+    private static func bundleIds(lockedIn status: TeacherProfileLockStatus) -> Set<String> {
+        if case .locked(let bundleIds) = status {
+            return Set(bundleIds)
+        }
+        return []
     }
     
     // MARK: - View Components
@@ -133,9 +171,6 @@ struct DeviceAppsView: View {
     @ViewBuilder
     private var navigationBar: some View {
         HStack {
-//            Text(device.name)
-//                .font(AppTheme.Typography.navigationTitle)
-            
             HStack(spacing: AppTheme.Spacing.md) {
                 // Device icon with colored ring
                 ZStack {
@@ -176,12 +211,7 @@ struct DeviceAppsView: View {
                         }
                     }
                     
-                    // Show owner info
-                    if let ownerId = device.ownerId {
-                        Text("Owner ID: \(ownerId)")
-                            .font(.caption2)
-                            .foregroundColor(AppTheme.Colors.textSecondary)
-                    } else {
+                    if !device.hasOwner {
                         HStack(spacing: 4) {
                             Image(systemName: "exclamationmark.circle.fill")
                                 .font(.caption2)
@@ -194,18 +224,36 @@ struct DeviceAppsView: View {
             }
             
             Spacer()
-            
-            Button(action: {
-                if device.hasOwner {
-                    unlockDevice()
-                } else {
-                    showOwnerWarning = true
-                }
-            }) {
+
+            unlockControl
+                .accessibilityHidden(isStartupLockCoverVisible)
+        }
+        .navigationBarStyle()
+        .padding(.bottom, AppTheme.Spacing.md)
+    }
+
+    /// A grey Unlocked label when nothing is locked. Otherwise the orange Unlock button,
+    /// which stays available when the lock state is not certain.
+    @ViewBuilder
+    private var unlockControl: some View {
+        if device.hasOwner && isLockStateKnown && lockedBundleIds.isEmpty && !isUnlocking {
+            Label("Unlocked", systemImage: "lock.open")
+                .font(.subheadline.weight(.medium))
+                .foregroundColor(AppTheme.Colors.textSecondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+        } else {
+            Button(action: unlockDevice) {
                 HStack(spacing: 6) {
-                    Image(systemName: "lock.open.fill")
-                        .font(.subheadline)
-                    Text("Unlock")
+                    if isUnlocking {
+                        ProgressView()
+                            .controlSize(.small)
+                            .tint(.white)
+                    } else {
+                        Image(systemName: "lock.open.fill")
+                            .font(.subheadline)
+                    }
+                    Text(isUnlocking ? "Unlocking…" : "Unlock")
                         .font(.subheadline)
                         .fontWeight(.medium)
                 }
@@ -215,42 +263,9 @@ struct DeviceAppsView: View {
                 .background(Color.orange)
                 .cornerRadius(8)
             }
-            .disabled(isLocking || isUnlocking || !device.hasOwner)
-            .opacity((isLocking || isUnlocking || !device.hasOwner) ? 0.5 : 1.0)
-            .accessibilityHidden(isStartupLockCoverVisible)
+            .disabled(!canUnlock)
+            .opacity(canUnlock || isUnlocking ? 1.0 : 0.5)
         }
-        .navigationBarStyle()
-        .padding(.bottom, AppTheme.Spacing.md)
-    }
-
-    
-    /// Device header showing device icon and child profile
-    @ViewBuilder
-    private var deviceHeaderView: some View {
-        HStack(spacing: AppTheme.Spacing.md) {
-            // Device icon with colored ring
-            ZStack {
-                Circle()
-                    .strokeBorder(device.color, lineWidth: 3)
-                    .frame(width: 60, height: 60)
-                
-                Image(systemName: device.iconName)
-                    .font(.system(size: 32))
-                    .foregroundColor(AppTheme.Colors.textPrimary)
-            }
-            
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
-                Text(device.name)
-                    .font(AppTheme.Typography.childName)
-                    .foregroundColor(AppTheme.Colors.textPrimary)
-
-            }
-            
-            Spacer()
-        }
-        .padding(AppTheme.Spacing.lg)
-        .background(AppTheme.Colors.cardBackground)
-        .padding(.bottom, AppTheme.Spacing.md)
     }
     
     /// Scrollable list of controlled apps with access controls
@@ -263,14 +278,12 @@ struct DeviceAppsView: View {
                 VStack(spacing: AppTheme.Spacing.md) {
                     // Instructional header
                     HStack(spacing: 8) {
-                        Image(systemName: device.hasOwner ? "hand.tap.fill" : "exclamationmark.triangle.fill")
+                        Image(systemName: hint.icon)
                             .font(.subheadline)
-                            .foregroundColor(device.hasOwner ? AppTheme.Colors.textSecondary : .orange)
-                        Text(device.hasOwner 
-                            ? "Tap any app to lock the device to it"
-                            : "Device has no owner - cannot lock apps")
+                            .foregroundColor(hint.color)
+                        Text(hint.text)
                             .font(.subheadline)
-                            .foregroundColor(device.hasOwner ? AppTheme.Colors.textSecondary : .orange)
+                            .foregroundColor(hint.color)
                         Spacer()
                     }
                     .padding(.horizontal, AppTheme.Spacing.lg)
@@ -285,7 +298,24 @@ struct DeviceAppsView: View {
                 .padding(.horizontal, AppTheme.Spacing.lg)
                 .padding(.bottom, AppTheme.Spacing.lg)
             }
+            .refreshable {
+                await recheckLock()
+            }
         }
+    }
+
+    /// Instruction line above the app cards.
+    private var hint: (icon: String, text: String, color: Color) {
+        if !device.hasOwner {
+            return ("exclamationmark.triangle.fill", "Device has no owner - cannot lock apps", .orange)
+        }
+        if isLockedToHiddenApp {
+            return ("lock.fill", "Locked to an app not shown here", AppTheme.Colors.primary)
+        }
+        if !lockedBundleIds.isEmpty {
+            return ("hand.tap.fill", "Tap another app to switch the lock", AppTheme.Colors.textSecondary)
+        }
+        return ("hand.tap.fill", "Tap any app to lock the device to it", AppTheme.Colors.textSecondary)
     }
     
     /// Individual app row with lock functionality
@@ -293,7 +323,12 @@ struct DeviceAppsView: View {
     private func appItemRow(for item: AppItem) -> some View {
         let count = appCounter.getCount(for: item.id, deviceUDID: device.udid)
         
-        TileView(item: item, count: count > 0 ? count : nil)
+        TileView(
+            item: item,
+            count: count > 0 ? count : nil,
+            isLocked: item.bundleId.map(lockedBundleIds.contains) ?? false,
+            isLocking: lockingAppId == item.id
+        )
             .contentShape(Rectangle())
             .onTapGesture {
                 if device.hasOwner {
@@ -302,57 +337,64 @@ struct DeviceAppsView: View {
                     showOwnerWarning = true
                 }
             }
-            .allowsHitTesting(!isLocking && device.hasOwner)
+            .allowsHitTesting(!isLocking && !isUnlocking && device.hasOwner)
             .opacity(device.hasOwner ? 1.0 : 0.6)
             .accessibilityHidden(isStartupLockCoverVisible)
     }
     
-    /// Lock device to the selected app
+    /// Lock device to the selected app. Success shows as the badge moving, so only errors get an alert.
     private func lockDeviceToApp(_ app: AppItem) {
-        guard !isLocking else { return }
-        
+        guard !isLocking, !isUnlocking else { return }
+        // Already locked into just this app: nothing to send.
+        if isLockStateKnown, let bundleId = app.bundleId, lockedBundleIds == [bundleId] {
+            return
+        }
+
         Task {
-            isLocking = true
-            
+            lockingAppId = app.id
+
             let result = await viewModel.lockDeviceToApp(device: device, app: app)
-            
-            isLocking = false
-            
+
+            lockingAppId = nil
+
             switch result {
-            case .success(let message):
+            case .success:
                 // Increment counter on successful lock
                 appCounter.incrementCount(for: app.id, deviceUDID: device.udid)
-                alertTitle = "Success"
-                alertMessage = message
-                showAlert = true
-                
+                if let bundleId = app.bundleId {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) {
+                        recordLockState([bundleId])
+                    }
+                }
+                successFeedback += 1
+
             case .failure(let error):
-                alertTitle = "Error"
                 alertMessage = error.localizedDescription
                 showAlert = true
+                await recheckLock()
             }
         }
     }
-    
-    /// Unlock device by removing all app locks
+
+    /// Unlock device by removing all app locks. Success shows as the badge leaving, so only errors get an alert.
     private func unlockDevice() {
-        guard !isUnlocking else { return }
-        
+        guard !isUnlocking, !isLocking else { return }
+
         Task {
             isUnlocking = true
-            
+
             let result = await viewModel.unlockDevice(device: device)
-            
+
             isUnlocking = false
-            
+
             switch result {
-            case .success(let message):
-                alertTitle = "Device Unlocked"
-                alertMessage = message
-                showAlert = true
-                
+            case .success:
+                withAnimation(.easeOut(duration: 0.25)) {
+                    recordLockState([])
+                }
+                successFeedback += 1
+
             case .failure(let error):
-                alertTitle = "Error"
                 alertMessage = error.localizedDescription
                 showAlert = true
             }

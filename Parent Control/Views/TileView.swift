@@ -11,10 +11,16 @@ import SwiftUI
 struct TileView: View {
     let item: AppItem
     let count: Int?
-    
-    init(item: AppItem, count: Int? = nil) {
+    /// True when the device is currently locked into this app
+    let isLocked: Bool
+    /// True while a lock into this app is being sent
+    let isLocking: Bool
+
+    init(item: AppItem, count: Int? = nil, isLocked: Bool = false, isLocking: Bool = false) {
         self.item = item
         self.count = count
+        self.isLocked = isLocked
+        self.isLocking = isLocking
     }
     
     var body: some View {
@@ -37,21 +43,54 @@ struct TileView: View {
             }
             .padding(AppTheme.Spacing.lg)
             
-            // Count badge
-            if let count = count, count > 0 {
-                Text("\(count)")
+            HStack(spacing: AppTheme.Spacing.xs) {
+                // Locking spinner, replaced by the Locked badge once the lock is sent
+                if isLocking {
+                    HStack(spacing: 4) {
+                        ProgressView()
+                            .controlSize(.mini)
+                        Text("Locking…")
+                    }
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.white)
-                    .frame(minWidth: 20, minHeight: 20)
-                    .padding(.horizontal, 6)
+                    .foregroundColor(AppTheme.Colors.textSecondary)
+                    .padding(.horizontal, 8)
+                    .frame(minHeight: 20)
                     .padding(.vertical, 2)
-                    .background(AppTheme.Colors.primary)
+                    .background(AppTheme.Colors.background)
                     .clipShape(Capsule())
-                    .padding(.top, AppTheme.Spacing.sm)
-                    .padding(.trailing, AppTheme.Spacing.sm)
+                } else if isLocked {
+                    Label("Locked", systemImage: "lock.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 8)
+                        .frame(minHeight: 20)
+                        .padding(.vertical, 2)
+                        .background(AppTheme.Colors.primary)
+                        .clipShape(Capsule())
+                        .transition(.scale(scale: 0.5).combined(with: .opacity))
+                }
+
+                // Count badge, grey so it does not read as part of the Locked badge
+                if let count = count, count > 0 {
+                    Text("\(count)")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(AppTheme.Colors.textSecondary)
+                        .frame(minWidth: 20, minHeight: 20)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(AppTheme.Colors.background)
+                        .clipShape(Capsule())
+                }
             }
+            .padding(.top, AppTheme.Spacing.sm)
+            .padding(.trailing, AppTheme.Spacing.sm)
         }
         .cardStyle()
+        .overlay(
+            RoundedRectangle(cornerRadius: AppTheme.Layout.cornerRadius)
+                .strokeBorder(AppTheme.Colors.primary, lineWidth: 2)
+                .opacity(isLocked ? 1 : 0)
+        )
     }
 }
 
@@ -76,6 +115,17 @@ struct TileView_Previews: PreviewProvider {
                     additionalInfo: "Additional Info"
                 ),
                 count: 5
+            )
+
+            TileView(
+                item: AppItem(
+                    title: "Locked App",
+                    description: "The device is locked into this app.",
+                    iconName: "star.fill",
+                    additionalInfo: "Additional Info"
+                ),
+                count: 2,
+                isLocked: true
             )
         }
         .previewLayout(.sizeThatFits)

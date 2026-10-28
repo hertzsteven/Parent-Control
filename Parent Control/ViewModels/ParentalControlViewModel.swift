@@ -39,7 +39,10 @@ final class ParentalControlViewModel {
     
     /// Network service for API calls
     private let networkService: NetworkService
-    
+
+    /// Version 4 profile lock used by tile taps, so Check lock can read it back
+    private let profileLockClient: TeacherProfileLockClient
+
     /// API configuration for accessing tokens and settings
     private let configuration: APIConfiguration
     
@@ -59,11 +62,13 @@ final class ParentalControlViewModel {
         appItems: [AppItem]? = nil,
         devices: [Device]? = nil,
         networkService: NetworkService = NetworkService(),
+        profileLockClient: TeacherProfileLockClient = TeacherProfileLockClient(),
         configuration: APIConfiguration = .default,
         authManager: AuthenticationManager? = nil,
         appPreferences: DeviceAppPreferences = .shared
     ) {
         self.networkService = networkService
+        self.profileLockClient = profileLockClient
         self.configuration = configuration
         self.authManager = authManager
         self.appPreferences = appPreferences
@@ -274,25 +279,21 @@ final class ParentalControlViewModel {
                 print("📄 Removed \(tasks.count) existing lock(s)")
             }
             
-            // STEP 2: Apply App Lock
-            print("\n📍 STEP 2: Applying App Lock")
+            // STEP 2: Apply App Lock with version 4 so Check lock can read it back
+            print("\n📍 STEP 2: Applying App Lock (v4 PUT /teacher/profiles)")
             print(String(repeating: "-", count: 80))
             print("📱 Bundle ID: \(bundleId)")
             print("⏱️ Clear After: \(clearAfter) seconds")
             print("👨‍🎓 Student IDs: \(userId)")
             print("🔑 Token: \(token)")
-            
-            let lockResponse = try await networkService.applyAppLock(
+
+            try await profileLockClient.lockToApp(
+                ownerId: userId,
                 bundleId: bundleId,
-                clearAfterSeconds: clearAfter,
-                studentIds: [userId],
                 token: token
             )
-            
+
             print("\n✅ App Lock Applied Successfully!")
-            if let message = lockResponse.message {
-                print("📄 Response: \(message)")
-            }
             print(String(repeating: "=", count: 80) + "\n")
             
             let successMessage = "In a few seconds, the device will be locked to \(app.title)."
